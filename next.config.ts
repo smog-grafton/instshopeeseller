@@ -1,5 +1,22 @@
 import type { NextConfig } from "next";
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+const apiPattern = (() => {
+  if (!apiUrl) return null;
+
+  try {
+    const parsed = new URL(apiUrl);
+    return {
+      protocol: parsed.protocol.replace(":", "") as "http" | "https",
+      hostname: parsed.hostname,
+      port: parsed.port || undefined,
+      pathname: "/**",
+    };
+  } catch {
+    return null;
+  }
+})();
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   compress: true,
@@ -16,18 +33,7 @@ const nextConfig: NextConfig = {
         hostname: "cf.shopee.com.my",
         pathname: "/**",
       },
-      {
-        protocol: "http",
-        hostname: "localhost",
-        port: "8000",
-        pathname: "/**",
-      },
-      {
-        protocol: "http",
-        hostname: "api.instshopee.test",
-        port: "8000",
-        pathname: "/**",
-      },
+      ...(apiPattern ? [apiPattern] : []),
     ],
   },
 };

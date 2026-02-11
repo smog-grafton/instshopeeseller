@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
+import { getBuyerLoginUrl } from "@/lib/utils";
 
 export default function HomePage() {
   const { user, isLoading } = useAuth();
@@ -13,18 +14,16 @@ export default function HomePage() {
     
     if (!user) {
       // Not logged in - redirect to buyer site login
-      const nextUrl = encodeURIComponent(window.location.href);
-      window.location.href = `http://instshopee.test:3000/login?next=${nextUrl}`;
+      const nextUrl = window.location.href;
+      window.location.href = getBuyerLoginUrl(nextUrl);
       return;
     }
 
-    // Check seller status
-    if (!user.isSeller || user.sellerStatus !== "approved") {
-      // Not a seller or pending - go to onboarding
-      router.push("/portal/my-onboarding");
-    } else {
-      // Approved seller - go to dashboard
+    // Approved or pending (submitted) → dashboard; else onboarding
+    if (user.sellerStatus === "approved" || user.sellerStatus === "pending") {
       router.push("/portal/dashboard");
+    } else {
+      router.push("/portal/my-onboarding");
     }
   }, [user, isLoading, router]);
 
