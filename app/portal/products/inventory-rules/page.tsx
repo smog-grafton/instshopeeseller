@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { getSellerProducts, updateSellerProduct } from "@/lib/api-client";
 
-export default function InventoryRulesPage() {
+function InventoryRulesContent() {
   const params = useSearchParams();
   const focusId = params.get("product");
   const [products, setProducts] = useState<any[]>([]);
@@ -132,5 +132,13 @@ export default function InventoryRulesPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function InventoryRulesPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-gray-500">Loading...</div>}>
+      <InventoryRulesContent />
+    </Suspense>
   );
 }

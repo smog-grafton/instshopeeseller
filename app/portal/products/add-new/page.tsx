@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -14,7 +14,7 @@ import {
 type Spec = { label: string; value: string };
 type Variant = { type: "color" | "size"; label: string; sku?: string; price?: string; original_price?: string; stock?: string };
 
-export default function AddNewProductPage() {
+function AddNewProductContent() {
   const params = useSearchParams();
   const router = useRouter();
   const initialTab = params.get("tab") === "catalog" ? "catalog" : "custom";
@@ -439,5 +439,13 @@ export default function AddNewProductPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AddNewProductPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-gray-500">Loading...</div>}>
+      <AddNewProductContent />
+    </Suspense>
   );
 }
