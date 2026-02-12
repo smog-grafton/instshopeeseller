@@ -1,5 +1,12 @@
-const API_BASE = `${process.env.NEXT_PUBLIC_API_URL}/api/v1`;
-const SANCTUM_BASE = process.env.NEXT_PUBLIC_API_URL;
+// Support both https://api.example.com and https://api.example.com/api so we never get /api/api/v1
+const getApiRoot = () => (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/api\/?$/, "");
+const API_BASE = `${getApiRoot()}/api/v1`;
+const SANCTUM_BASE = process.env.NEXT_PUBLIC_API_URL ?? getApiRoot();
+
+/** Base URL for /api/v1 (avoids double /api when NEXT_PUBLIC_API_URL ends with /api). Use for EventSource etc. */
+export function getApiBaseUrl(): string {
+  return API_BASE;
+}
 
 export interface ApiUser {
   id: number;
@@ -418,7 +425,7 @@ export async function saveOnboardingStep2(data: SaveOnboardingStep2Payload) {
   });
 }
 
-const API_BASE_NO_JSON = `${process.env.NEXT_PUBLIC_API_URL}/api/v1`;
+const API_BASE_NO_JSON = API_BASE;
 
 /** Step 3: multipart/form-data with optional file uploads */
 export async function saveOnboardingStep3(formData: FormData) {

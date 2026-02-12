@@ -144,12 +144,12 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 max-w-full overflow-hidden">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-        <h1 className="text-2xl font-semibold text-gray-800">Seller Dashboard</h1>
-        <div className="text-sm text-gray-500">
+        <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">Seller Dashboard</h1>
+        <div className="text-xs sm:text-sm text-gray-500 truncate">
           Welcome, {user?.name || "Seller"}
-          {wallet && <span className="ml-2">• Wallet {formatMoney(wallet.balance, wallet.currency || "USD")}</span>}
+          {wallet && <span className="ml-1 sm:ml-2">• Wallet {formatMoney(wallet.balance, wallet.currency || "USD")}</span>}
         </div>
       </div>
 
@@ -169,16 +169,16 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 sm:px-4 py-3 text-xs sm:text-sm text-blue-800">
         You can now submit a form to rearrange pickups if the logistics provider fails to show up or misses parcels.
       </div>
 
-      <div className={`grid grid-cols-12 gap-6 ${isPending ? "opacity-70" : ""}`}>
-        <div className="col-span-12 lg:col-span-8 space-y-6">
-          <div className="bg-white border border-gray-200 rounded-lg p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-800">To Do List</h2>
-              <div className="flex items-center gap-3 text-xs text-gray-500">
+      <div className={`grid grid-cols-12 gap-4 sm:gap-6 ${isPending ? "opacity-70" : ""}`}>
+        <div className="col-span-12 lg:col-span-8 space-y-4 sm:space-y-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <h2 className="text-sm sm:text-base font-semibold text-gray-800">To Do List</h2>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-500">
                 {stats && (
                   <span>
                     Total orders: {stats.total_orders ?? 0} • Products: {stats.total_products ?? 0}
@@ -191,20 +191,20 @@ export default function DashboardPage() {
                 )}
               </div>
             </div>
-            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
               {todoItems.map((item) => (
-                <div key={item.label} className="text-center">
-                  <div className="text-2xl font-semibold text-gray-800">{loading ? "—" : item.value}</div>
-                  <div className="text-xs text-gray-500 mt-1">{item.label}</div>
+                <div key={item.label} className="text-center min-w-0 p-2 sm:p-0">
+                  <div className="text-xl sm:text-2xl font-semibold text-gray-800 truncate">{loading ? "—" : item.value}</div>
+                  <div className="text-xs text-gray-500 mt-1 line-clamp-2">{item.label}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-lg p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-800">Business Insights</h2>
-              <Link href="/portal/data/business-insights" className="text-sm text-blue-600 hover:text-blue-700">
+          <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <h2 className="text-sm sm:text-base font-semibold text-gray-800">Business Insights</h2>
+              <Link href="/portal/data/business-insights" className="text-sm text-blue-600 hover:text-blue-700 flex-shrink-0">
                 More
               </Link>
             </div>
@@ -215,28 +215,28 @@ export default function DashboardPage() {
               <div className="mt-4 text-sm text-gray-500">No analytics data yet.</div>
             ) : (
               <div className="mt-4 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="text-sm min-w-0">
                     <div className="text-xs text-gray-500">Revenue</div>
-                    <div className="text-lg font-semibold text-gray-900">
+                    <div className="text-base sm:text-lg font-semibold text-gray-900 truncate">
                       {formatMoney(overview.total_revenue ?? 0, wallet?.currency || "USD")}
                     </div>
                   </div>
-                  <div className="text-sm">
+                  <div className="text-sm min-w-0">
                     <div className="text-xs text-gray-500">Total Orders</div>
-                    <div className="text-lg font-semibold text-gray-900">{overview.total_orders ?? 0}</div>
+                    <div className="text-base sm:text-lg font-semibold text-gray-900">{overview.total_orders ?? 0}</div>
                   </div>
-                  <div className="text-sm">
+                  <div className="text-sm min-w-0">
                     <div className="text-xs text-gray-500">Items Sold</div>
-                    <div className="text-lg font-semibold text-gray-900">{overview.total_items ?? 0}</div>
+                    <div className="text-base sm:text-lg font-semibold text-gray-900">{overview.total_items ?? 0}</div>
                   </div>
                 </div>
-                <div className="divide-y divide-gray-100 text-sm">
+                <div className="divide-y divide-gray-100 text-sm min-w-0 overflow-x-auto">
                   {recentDaily.length === 0 ? (
                     <div className="py-2 text-gray-500">No recent sales.</div>
                   ) : (
                     recentDaily.map((row) => (
-                      <div key={row.date} className="flex items-center justify-between py-2">
+                      <div key={row.date} className="flex flex-wrap items-center justify-between gap-2 py-2">
                         <div className="text-gray-600">{row.date}</div>
                         <div className="text-gray-800">
                           {formatMoney(row.revenue ?? 0, wallet?.currency || "USD")}
@@ -250,10 +250,10 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-lg p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-800">Shopee Ads</h2>
-              <Link href="/portal/marketing/ads" className="text-sm text-blue-600 hover:text-blue-700">
+          <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <h2 className="text-sm sm:text-base font-semibold text-gray-800">Shopee Ads</h2>
+              <Link href="/portal/marketing/ads" className="text-sm text-blue-600 hover:text-blue-700 flex-shrink-0">
                 More
               </Link>
             </div>
@@ -262,12 +262,12 @@ export default function DashboardPage() {
             ) : adsCampaigns.length === 0 ? (
               <div className="mt-4 text-sm text-gray-500">No ads campaigns yet.</div>
             ) : (
-              <div className="mt-4 space-y-2 text-sm">
+              <div className="mt-4 space-y-2 text-sm min-w-0">
                 <div className="text-xs text-gray-500">Active campaigns: {runningAds}</div>
                 {adsCampaigns.slice(0, 3).map((campaign) => (
-                  <div key={campaign.id} className="flex items-center justify-between">
-                    <div className="text-gray-700">{campaign.title}</div>
-                    <div className="text-xs text-gray-500">{campaign.status}</div>
+                  <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-gray-700 min-w-0 truncate">{campaign.title}</div>
+                    <div className="text-xs text-gray-500 flex-shrink-0">{campaign.status}</div>
                   </div>
                 ))}
               </div>
@@ -275,11 +275,11 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="col-span-12 lg:col-span-4 space-y-6">
-          <div className="bg-white border border-gray-200 rounded-lg p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-800">Announcements</h2>
-              <Link href="/portal/marketing/vouchers" className="text-sm text-blue-600 hover:text-blue-700">
+        <div className="col-span-12 lg:col-span-4 space-y-4 sm:space-y-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <h2 className="text-sm sm:text-base font-semibold text-gray-800">Announcements</h2>
+              <Link href="/portal/marketing/vouchers" className="text-sm text-blue-600 hover:text-blue-700 flex-shrink-0">
                 More
               </Link>
             </div>
@@ -290,9 +290,9 @@ export default function DashboardPage() {
             ) : (
               <div className="mt-4 space-y-3">
                 {recentVouchers.map((voucher) => (
-                  <div key={voucher.id} className="border border-gray-100 rounded-lg p-3">
-                    <div className="text-sm font-semibold text-gray-800">{voucher.title}</div>
-                    <div className="text-xs text-gray-500">{voucher.description || "Voucher update"}</div>
+                  <div key={voucher.id} className="border border-gray-100 rounded-lg p-3 min-w-0">
+                    <div className="text-sm font-semibold text-gray-800 break-words">{voucher.title}</div>
+                    <div className="text-xs text-gray-500 break-words">{voucher.description || "Voucher update"}</div>
                     <div className="text-xs text-gray-400 mt-1">{voucher.active ? "Active" : "Inactive"}</div>
                   </div>
                 ))}
@@ -300,18 +300,18 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-lg p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-800">Account Health</h2>
-              <Link href="/portal/data/account-health" className="text-sm text-blue-600 hover:text-blue-700">
+          <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <h2 className="text-sm sm:text-base font-semibold text-gray-800">Account Health</h2>
+              <Link href="/portal/data/account-health" className="text-sm text-blue-600 hover:text-blue-700 flex-shrink-0">
                 More
               </Link>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3 text-sm">
               {healthItems.map((item) => (
-                <Link key={item.label} href={item.href} className="border border-gray-100 rounded-lg p-3 hover:bg-gray-50">
-                  <div className="text-lg font-semibold text-gray-800">{loading ? "—" : item.value}</div>
-                  <div className="text-xs text-gray-500">{item.label}</div>
+                <Link key={item.label} href={item.href} className="border border-gray-100 rounded-lg p-3 hover:bg-gray-50 min-w-0">
+                  <div className="text-base sm:text-lg font-semibold text-gray-800 truncate">{loading ? "—" : item.value}</div>
+                  <div className="text-xs text-gray-500 line-clamp-2">{item.label}</div>
                 </Link>
               ))}
             </div>

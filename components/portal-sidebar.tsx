@@ -65,20 +65,22 @@ export default function PortalSidebar({
   onToggleCollapse: () => void;
 }) {
   const pathname = usePathname();
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(portalNav.map((g) => [g.label, true]))
+  );
 
   const activeGroup = useMemo(() => {
     const match = portalNav.find((group) => group.items.some((item) => pathname.startsWith(item.href)));
     return match?.label ?? "Dashboard";
   }, [pathname]);
 
-  const isOpen = (label: string) => openGroups[label] ?? label === activeGroup;
+  const isOpen = (label: string) => openGroups[label] ?? true;
 
   return (
     <aside
-      className={`h-screen sticky top-0 bg-white border-r border-gray-200 ${
-        collapsed ? "w-[72px]" : "w-[240px]"
-      } transition-all duration-200`}
+      className={`h-screen sticky top-0 bg-white border-r border-gray-200 z-30 transition-all duration-200 ${
+        collapsed ? "w-[72px]" : "w-[240px] max-md:absolute max-md:left-0 max-md:shadow-lg max-md:z-40"
+      }`}
     >
       <div className="h-14 px-4 flex items-center justify-between border-b border-gray-200">
         <div className="flex items-center gap-2 overflow-hidden">
@@ -90,10 +92,10 @@ export default function PortalSidebar({
         <button
           type="button"
           onClick={onToggleCollapse}
-          className="text-gray-500 hover:text-gray-700"
+          className="text-gray-500 hover:text-gray-700 flex-shrink-0"
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+          <svg className={`w-4 h-4 transition-transform ${collapsed ? "" : "rotate-180"}`} viewBox="0 0 24 24" fill="none">
             <path d="M8 5l8 7-8 7" stroke="currentColor" strokeWidth="1.6" />
           </svg>
         </button>
@@ -130,10 +132,11 @@ export default function PortalSidebar({
                       <Link
                         key={item.href}
                         href={item.href}
-                        className={`block text-sm py-1.5 px-2 rounded ${
+                        className={`flex items-center gap-2 text-sm py-1.5 px-2 rounded ${
                           active ? "text-orange-600 bg-orange-50" : "text-gray-600 hover:bg-gray-50"
                         }`}
                       >
+                        <span className="text-gray-400 flex-shrink-0">{iconMap[group.icon]}</span>
                         {item.label}
                       </Link>
                     );

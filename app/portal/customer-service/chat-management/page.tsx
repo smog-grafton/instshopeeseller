@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { getSellerChatMessages, getSellerChatThreads, sendSellerChatMessage, sendSellerChatTyping } from "@/lib/api-client";
+import { getApiBaseUrl, getSellerChatMessages, getSellerChatThreads, sendSellerChatMessage, sendSellerChatTyping } from "@/lib/api-client";
 
 type Thread = {
   id: string;
@@ -57,13 +57,13 @@ export default function ChatManagementPage() {
 
   useEffect(() => {
     if (!selectedId) return;
-    const base = process.env.NEXT_PUBLIC_API_URL;
+    const base = getApiBaseUrl();
     if (!base) return;
     const lastId = messagesRef.current
       .map((m) => Number(m.id))
       .filter((id) => !Number.isNaN(id))
       .reduce((max, id) => (id > max ? id : max), 0);
-    const url = `${base}/api/v1/seller/chat/threads/${selectedId}/stream${lastId && lastId > 0 ? `?last_id=${lastId}` : ""}`;
+    const url = `${base}/seller/chat/threads/${selectedId}/stream${lastId && lastId > 0 ? `?last_id=${lastId}` : ""}`;
     const source = new EventSource(url, { withCredentials: true });
     source.addEventListener("message", (event) => {
       try {
