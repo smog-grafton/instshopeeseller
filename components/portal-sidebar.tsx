@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { portalNav } from "@/components/portal-nav";
 
 type IconName = "order" | "product" | "marketing" | "customer" | "finance" | "data" | "shop" | "dashboard";
 
-const iconMap: Record<IconName, JSX.Element> = {
+const iconMap: Record<IconName, React.ReactElement> = {
   dashboard: (
     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
       <path d="M3 12l9-9 9 9" stroke="currentColor" strokeWidth="1.6" />

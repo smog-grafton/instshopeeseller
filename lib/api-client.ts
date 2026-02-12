@@ -477,6 +477,7 @@ export interface SellerProduct {
   appeal_message?: string | null;
   thumbnail_url: string | null;
   created_at: string;
+  catalog_link?: string | null;
 }
 
 export async function getSellerProducts(params?: { search?: string; status?: "active" | "inactive" | "draft" | "pending" | "live" | "rejected" | "hidden"; per_page?: number }) {

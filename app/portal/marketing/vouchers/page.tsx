@@ -196,7 +196,7 @@ export default function VouchersPage() {
                     <div className="text-xs text-gray-500">{voucher.description}</div>
                   </div>
                   <button
-                    onClick={() => updateSellerVoucher(voucher.id, { active: !voucher.active }).then(loadData)}
+                    onClick={() => updateSellerVoucher(voucher.id, { title: voucher.title, description: voucher.description, active: !voucher.active }).then(loadData)}
                     className="text-xs text-blue-600"
                   >
                     {voucher.active ? "Disable" : "Enable"}

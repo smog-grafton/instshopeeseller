@@ -346,7 +346,7 @@ export default function EditProductPage() {
                     type="text"
                     placeholder="SKU"
                     defaultValue={v.sku || ""}
-                    onBlur={(e) => updateVariant(id, v.id, { sku: e.target.value || null })}
+                    onBlur={(e) => updateVariant(id, v.id, { sku: e.target.value || undefined })}
                     className="h-8 px-2 border border-gray-200 rounded text-xs"
                   />
                   <input
@@ -369,10 +369,11 @@ export default function EditProductPage() {
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
-                      uploadVariantImage(id, v.id, file).then((res) => {
+                      uploadVariantImage(id, v.id, file).then((res: { variant?: any; product?: { variants?: any[] } }) => {
                         setProduct((prev: any) => {
                           const next = { ...prev };
-                          next.variants = next.variants.map((x: any) => (x.id === v.id ? res.variant : x));
+                          const updated = res.variant ?? res.product?.variants?.find((vari: any) => vari.id === v.id);
+                          next.variants = next.variants.map((x: any) => (x.id === v.id ? (updated ?? x) : x));
                           return next;
                         });
                       });
