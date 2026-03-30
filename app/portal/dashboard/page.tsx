@@ -152,14 +152,11 @@ function MetricCard({
   currency?: string;
 }) {
   const style = toneStyles[tone];
-  const Wrapper = href ? Link : "div";
-  const wrapperProps = href ? { href } : {};
-
-  return (
-    <Wrapper
-      {...wrapperProps}
-      className={`${cardShell} ${style.surface} block min-w-0 transition ${href ? "hover:border-neutral-300 hover:shadow-[0_6px_20px_rgba(15,23,42,0.08)]" : ""}`}
-    >
+  const className = `${cardShell} ${style.surface} block min-w-0 transition ${
+    href ? "hover:border-neutral-300 hover:shadow-[0_6px_20px_rgba(15,23,42,0.08)]" : ""
+  }`;
+  const content = (
+    <>
       <div className={`h-1 ${style.accent}`} aria-hidden />
       <div className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
@@ -182,8 +179,18 @@ function MetricCard({
         <p className="mt-3 text-sm leading-6 text-neutral-700">{description}</p>
         <div className="mt-4 border-t border-black/[0.06] pt-3 text-xs leading-5 text-neutral-500">{footnote}</div>
       </div>
-    </Wrapper>
+    </>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {content}
+      </Link>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
 }
 
 function StatusPanel({
@@ -197,19 +204,26 @@ function StatusPanel({
   description: string;
   href?: string;
 }) {
-  const Wrapper = href ? Link : "div";
-  const wrapperProps = href ? { href } : {};
-
-  return (
-    <Wrapper
-      {...wrapperProps}
-      className={`${cardShell} block min-w-0 p-4 transition ${href ? "hover:border-neutral-300 hover:bg-neutral-50" : ""}`}
-    >
+  const className = `${cardShell} block min-w-0 p-4 transition ${
+    href ? "hover:border-neutral-300 hover:bg-neutral-50" : ""
+  }`;
+  const content = (
+    <>
       <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">{title}</div>
       <div className="mt-2 text-2xl font-semibold leading-none tabular-nums text-neutral-900">{value}</div>
       <div className="mt-2 text-xs leading-5 text-neutral-600">{description}</div>
-    </Wrapper>
+    </>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {content}
+      </Link>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
 }
 
 function EmptyState({ message }: { message: string }) {
@@ -277,46 +291,45 @@ export default function DashboardPage() {
   const loadData = async () => {
     setLoading(true);
 
-    const results = await Promise.allSettled([
+    const [dashboardResult, analyticsResult, metricsResult, campaignsResult, vouchersResult] = await Promise.allSettled([
       getSellerDashboard(),
       getSellerAnalyticsOverview(),
       getSellerDashboardMetrics(),
       getSellerCampaigns(),
       getSellerVouchers(),
-    ]);
+    ] as const);
 
-    const [dashboardRes, analyticsRes, metricsRes, campaignsRes, vouchersRes] = results.map((result) =>
-      result.status === "fulfilled" ? result.value : null
-    );
-
-    if (dashboardRes) {
-      setWallet(dashboardRes.wallet);
-      setStats(dashboardRes.stats);
+    if (dashboardResult.status === "fulfilled") {
+      setWallet(dashboardResult.value.wallet);
+      setStats(dashboardResult.value.stats);
     }
 
-    if (analyticsRes) {
-      setOverview(analyticsRes.overview || null);
-      setDaily(analyticsRes.daily || []);
+    if (analyticsResult.status === "fulfilled") {
+      setOverview(analyticsResult.value.overview || null);
+      setDaily(analyticsResult.value.daily || []);
     }
 
-    if (campaignsRes) {
-      setCampaigns(campaignsRes.campaigns || []);
+    if (campaignsResult.status === "fulfilled") {
+      setCampaigns(campaignsResult.value.campaigns || []);
     }
 
-    if (vouchersRes) {
-      setVouchers(vouchersRes.vouchers || []);
+    if (vouchersResult.status === "fulfilled") {
+      setVouchers(vouchersResult.value.vouchers || []);
     }
 
-    if (metricsRes?.metrics?.product_status_counts) {
+    if (
+      metricsResult.status === "fulfilled" &&
+      metricsResult.value.metrics?.product_status_counts
+    ) {
       setProductCounts({
-        rejected: metricsRes.metrics.product_status_counts.rejected ?? 0,
-        hidden: metricsRes.metrics.product_status_counts.hidden ?? 0,
-        pending: metricsRes.metrics.product_status_counts.pending ?? 0,
-        live: metricsRes.metrics.product_status_counts.live ?? 0,
+        rejected: metricsResult.value.metrics.product_status_counts.rejected ?? 0,
+        hidden: metricsResult.value.metrics.product_status_counts.hidden ?? 0,
+        pending: metricsResult.value.metrics.product_status_counts.pending ?? 0,
+        live: metricsResult.value.metrics.product_status_counts.live ?? 0,
       });
       setHealthMetrics({
-        lowStock: metricsRes.metrics.low_stock_products ?? 0,
-        avgRating: metricsRes.metrics.average_rating ?? 0,
+        lowStock: metricsResult.value.metrics.low_stock_products ?? 0,
+        avgRating: metricsResult.value.metrics.average_rating ?? 0,
       });
     }
 

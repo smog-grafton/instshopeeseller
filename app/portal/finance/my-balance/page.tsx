@@ -21,6 +21,7 @@ type DepositAccount = {
 };
 
 type DepositMethodConfig = {
+  label?: string;
   instructions?: string;
   note?: string;
   accounts?: DepositAccount[];

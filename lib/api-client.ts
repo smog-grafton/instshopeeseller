@@ -668,7 +668,10 @@ export async function uploadProductImages(productId: number, files: File[], thum
   const form = new FormData();
   files.forEach((f) => form.append("images[]", f));
   if (thumbnailIndex >= 0) form.append("thumbnail_index", String(thumbnailIndex));
-  return createMultipartRequest(`/seller/products/${productId}/images`, form);
+  return createMultipartRequest<{ success: boolean; message: string; product: any }>(
+    `/seller/products/${productId}/images`,
+    form
+  );
 }
 
 export async function reorderProductImages(productId: number, order: number[]) {
@@ -693,7 +696,10 @@ export async function setProductThumbnail(productId: number, imageId: number) {
 export async function uploadVariantImage(productId: number, variantId: number, file: File) {
   const form = new FormData();
   form.append("image", file);
-  return createMultipartRequest(`/seller/products/${productId}/variants/${variantId}/image`, form);
+  return createMultipartRequest<{ success: boolean; message: string; variant: any }>(
+    `/seller/products/${productId}/variants/${variantId}/image`,
+    form
+  );
 }
 
 export async function updateVariant(productId: number, variantId: number, data: { sku?: string; price?: number | null; original_price?: number | null; stock?: number | null }) {
@@ -723,7 +729,7 @@ export async function syncProductFromCatalog(productId: number, replaceImages = 
   });
 }
 
-function createMultipartRequest(path: string, formData: FormData) {
+function createMultipartRequest<T>(path: string, formData: FormData): Promise<T> {
   return fetch(`${API_BASE_NO_JSON}${path}`, {
     method: "POST",
     body: formData,
@@ -740,6 +746,6 @@ function createMultipartRequest(path: string, formData: FormData) {
       err.errors = (data as { errors?: Record<string, string[]> }).errors;
       throw err;
     }
-    return data as { success: boolean; message: string; product: any };
+    return data as T;
   });
 }
