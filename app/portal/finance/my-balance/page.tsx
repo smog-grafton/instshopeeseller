@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import {
   getDepositPaymentMethods,
@@ -9,13 +10,36 @@ import {
   requestWalletWithdrawal,
 } from "@/lib/api-client";
 
+type DepositAccount = {
+  label?: string;
+  bank_name?: string;
+  account_name?: string;
+  account_number?: string;
+  address?: string;
+  network?: string;
+  currency?: string;
+};
+
+type DepositMethodConfig = {
+  instructions?: string;
+  note?: string;
+  accounts?: DepositAccount[];
+  bank_accounts?: DepositAccount[];
+  address?: string;
+  network?: string;
+  bank_name?: string;
+  account_name?: string;
+  account_number?: string;
+  currency?: string;
+};
+
 type DepositMethod = {
   id: number;
   key: string;
   name: string;
   type: "manual" | "automatic" | string;
   logo_url?: string | null;
-  config?: any;
+  config?: DepositMethodConfig | string | null;
 };
 
 type BankAccount = {
@@ -27,11 +51,26 @@ type BankAccount = {
   is_default?: boolean;
 };
 
-const parseConfig = (config: any) => {
+type WalletSummary = {
+  balance: string;
+  currency: string;
+  available_balance: string;
+  pending_balance?: string;
+};
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+};
+
+const parseConfig = (config: DepositMethod["config"]): DepositMethodConfig => {
   if (!config) return {};
   if (typeof config === "string") {
     try {
-      return JSON.parse(config);
+      return JSON.parse(config) as DepositMethodConfig;
     } catch {
       return {};
     }
@@ -41,7 +80,7 @@ const parseConfig = (config: any) => {
 
 export default function MyBalancePage() {
   const [loading, setLoading] = useState(true);
-  const [wallet, setWallet] = useState<any>(null);
+  const [wallet, setWallet] = useState<WalletSummary | null>(null);
   const [methods, setMethods] = useState<DepositMethod[]>([]);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
 
@@ -175,8 +214,8 @@ export default function MyBalancePage() {
       alert("Top-up request submitted. Please wait for admin approval.");
       setShowTopup(false);
       loadWallet();
-    } catch (e: any) {
-      alert(e.message || "Failed to submit top-up request.");
+    } catch (error: unknown) {
+      alert(getErrorMessage(error, "Failed to submit top-up request."));
     } finally {
       setTopupLoading(false);
     }
@@ -186,7 +225,7 @@ export default function MyBalancePage() {
     if (!canSubmitWithdraw) return;
     setWithdrawLoading(true);
     try {
-      const payload: any = {
+      const payload: Parameters<typeof requestWalletWithdrawal>[0] = {
         amount: Number(withdrawAmount),
         notes: withdrawNotes || undefined,
       };
@@ -203,8 +242,8 @@ export default function MyBalancePage() {
       alert("Withdrawal request submitted. Please wait for processing.");
       setShowWithdraw(false);
       loadWallet();
-    } catch (e: any) {
-      alert(e.message || "Failed to submit withdrawal request.");
+    } catch (error: unknown) {
+      alert(getErrorMessage(error, "Failed to submit withdrawal request."));
     } finally {
       setWithdrawLoading(false);
     }
@@ -287,58 +326,59 @@ export default function MyBalancePage() {
       )}
 
       {showTopup && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-3xl rounded-lg bg-white shadow-lg">
-            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-              <div>
-                <div className="text-xs text-gray-500">Finance</div>
-                <h2 className="text-lg font-semibold text-gray-900">Request Top Up</h2>
-              </div>
-              <button onClick={() => setShowTopup(false)} className="text-gray-400 hover:text-gray-600">
-                ✕
-              </button>
-            </div>
-            <div className="p-5 space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="fixed inset-0 z-40 overflow-y-auto bg-black/40 p-4">
+          <div className="flex min-h-full items-start justify-center py-2 sm:items-center sm:py-4">
+            <div className="flex w-full max-w-3xl max-h-[calc(100vh-2rem)] flex-col rounded-lg bg-white shadow-lg sm:max-h-[calc(100vh-3rem)]">
+              <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
                 <div>
-                  <label className="text-xs text-gray-500">Amount</label>
-                  <input
-                    value={topupAmount}
-                    onChange={(e) => setTopupAmount(e.target.value)}
-                    placeholder="Minimum 10"
-                    type="number"
-                    className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
-                  />
+                  <div className="text-xs text-gray-500">Finance</div>
+                  <h2 className="text-lg font-semibold text-gray-900">Request Top Up</h2>
                 </div>
-                <div>
-                  <label className="text-xs text-gray-500">Payment Gateway</label>
-                  <select
-                    value={topupMethodId ?? ""}
-                    onChange={(e) => setTopupMethodId(e.target.value ? Number(e.target.value) : null)}
-                    className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
-                  >
-                    <option value="">Select gateway</option>
-                    {manualMethods.length > 0 && (
-                      <optgroup label="Manual transfer">
-                        {manualMethods.map((method) => (
-                          <option key={method.id} value={method.id}>
-                            {method.name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {autoMethods.length > 0 && (
-                      <optgroup label="Automated">
-                        {autoMethods.map((method) => (
-                          <option key={method.id} value={method.id}>
-                            {method.name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
-                </div>
+                <button onClick={() => setShowTopup(false)} className="text-gray-400 hover:text-gray-600">
+                  ✕
+                </button>
               </div>
+              <div className="min-h-0 overflow-y-auto p-5 space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-500">Amount</label>
+                    <input
+                      value={topupAmount}
+                      onChange={(e) => setTopupAmount(e.target.value)}
+                      placeholder="Minimum 10"
+                      type="number"
+                      className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Payment Gateway</label>
+                    <select
+                      value={topupMethodId ?? ""}
+                      onChange={(e) => setTopupMethodId(e.target.value ? Number(e.target.value) : null)}
+                      className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                    >
+                      <option value="">Select gateway</option>
+                      {manualMethods.length > 0 && (
+                        <optgroup label="Manual transfer">
+                          {manualMethods.map((method) => (
+                            <option key={method.id} value={method.id}>
+                              {method.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {autoMethods.length > 0 && (
+                        <optgroup label="Automated">
+                          {autoMethods.map((method) => (
+                            <option key={method.id} value={method.id}>
+                              {method.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                  </div>
+                </div>
 
               {selectedMethod && (
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
@@ -352,7 +392,7 @@ export default function MyBalancePage() {
                   )}
                   {methodAccounts.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {methodAccounts.map((account: any, index: number) => (
+                      {methodAccounts.map((account, index: number) => (
                         <div key={`${account.label || account.bank_name || account.address}-${index}`} className="rounded border border-gray-200 bg-white p-3 text-sm">
                           <div className="font-medium text-gray-700">{account.label || account.bank_name || "Account"}</div>
                           {account.bank_name && <div className="text-gray-500">Bank: {account.bank_name}</div>}
@@ -394,7 +434,16 @@ export default function MyBalancePage() {
               {topupPreview && (
                 <div className="border border-gray-200 rounded-lg p-3 bg-white">
                   <div className="text-xs text-gray-500 mb-2">Proof preview</div>
-                  <img src={topupPreview} alt="Proof preview" className="max-h-48 rounded border border-gray-100" />
+                  <div className="overflow-auto rounded border border-gray-100 bg-gray-50 p-2">
+                    <Image
+                      src={topupPreview}
+                      alt="Proof preview"
+                      width={1200}
+                      height={1200}
+                      unoptimized
+                      className="block h-auto max-h-[min(24rem,40vh)] w-auto max-w-full rounded object-contain"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -407,64 +456,66 @@ export default function MyBalancePage() {
                   className="mt-2 w-full border border-gray-200 rounded p-2 text-sm"
                 />
               </div>
-            </div>
-            <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-5 py-4">
-              <button onClick={() => setShowTopup(false)} className="h-9 px-4 border border-gray-200 rounded text-sm hover:bg-gray-50">
-                Cancel
-              </button>
-              <button
-                onClick={onTopup}
-                disabled={!canSubmitTopup}
-                className="h-9 px-4 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 disabled:opacity-50"
-              >
-                {topupLoading ? "Submitting..." : "Submit Request"}
-              </button>
+              </div>
+              <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-5 py-4">
+                <button onClick={() => setShowTopup(false)} className="h-9 px-4 border border-gray-200 rounded text-sm hover:bg-gray-50">
+                  Cancel
+                </button>
+                <button
+                  onClick={onTopup}
+                  disabled={!canSubmitTopup}
+                  className="h-9 px-4 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {topupLoading ? "Submitting..." : "Submit Request"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {showWithdraw && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-2xl rounded-lg bg-white shadow-lg">
-            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-              <div>
-                <div className="text-xs text-gray-500">Finance</div>
-                <h2 className="text-lg font-semibold text-gray-900">Request Withdrawal</h2>
-              </div>
-              <button onClick={() => setShowWithdraw(false)} className="text-gray-400 hover:text-gray-600">
-                ✕
-              </button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="fixed inset-0 z-40 overflow-y-auto bg-black/40 p-4">
+          <div className="flex min-h-full items-start justify-center py-2 sm:items-center sm:py-4">
+            <div className="flex w-full max-w-2xl max-h-[calc(100vh-2rem)] flex-col rounded-lg bg-white shadow-lg sm:max-h-[calc(100vh-3rem)]">
+              <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
                 <div>
-                  <label className="text-xs text-gray-500">Amount</label>
-                  <input
-                    value={withdrawAmount}
-                    onChange={(e) => setWithdrawAmount(e.target.value)}
-                    placeholder="Minimum 10"
-                    type="number"
-                    className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
-                  />
+                  <div className="text-xs text-gray-500">Finance</div>
+                  <h2 className="text-lg font-semibold text-gray-900">Request Withdrawal</h2>
                 </div>
-                <div>
-                  <label className="text-xs text-gray-500">Use saved bank account</label>
-                  <select
-                    value={withdrawBankId === "" ? "" : String(withdrawBankId)}
-                    onChange={(e) => onSelectBank(e.target.value)}
-                    className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
-                  >
-                    <option value="">Select account</option>
-                    {accounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.bank_name} • {account.account_number}
-                      </option>
-                    ))}
-                    <option value="manual">Enter manually</option>
-                  </select>
-                </div>
+                <button onClick={() => setShowWithdraw(false)} className="text-gray-400 hover:text-gray-600">
+                  ✕
+                </button>
               </div>
+              <div className="min-h-0 overflow-y-auto p-5 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-500">Amount</label>
+                    <input
+                      value={withdrawAmount}
+                      onChange={(e) => setWithdrawAmount(e.target.value)}
+                      placeholder="Minimum 10"
+                      type="number"
+                      className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Use saved bank account</label>
+                    <select
+                      value={withdrawBankId === "" ? "" : String(withdrawBankId)}
+                      onChange={(e) => onSelectBank(e.target.value)}
+                      className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                    >
+                      <option value="">Select account</option>
+                      {accounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.bank_name} • {account.account_number}
+                        </option>
+                      ))}
+                      <option value="manual">Enter manually</option>
+                    </select>
+                  </div>
+                </div>
 
               {(withdrawBankId === "manual" || accounts.length === 0 || withdrawBankId === "") && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -507,18 +558,19 @@ export default function MyBalancePage() {
                   className="mt-2 w-full border border-gray-200 rounded p-2 text-sm"
                 />
               </div>
-            </div>
-            <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-5 py-4">
-              <button onClick={() => setShowWithdraw(false)} className="h-9 px-4 border border-gray-200 rounded text-sm hover:bg-gray-50">
-                Cancel
-              </button>
-              <button
-                onClick={onWithdraw}
-                disabled={!canSubmitWithdraw}
-                className="h-9 px-4 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 disabled:opacity-50"
-              >
-                {withdrawLoading ? "Submitting..." : "Submit Request"}
-              </button>
+              </div>
+              <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-5 py-4">
+                <button onClick={() => setShowWithdraw(false)} className="h-9 px-4 border border-gray-200 rounded text-sm hover:bg-gray-50">
+                  Cancel
+                </button>
+                <button
+                  onClick={onWithdraw}
+                  disabled={!canSubmitWithdraw}
+                  className="h-9 px-4 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {withdrawLoading ? "Submitting..." : "Submit Request"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

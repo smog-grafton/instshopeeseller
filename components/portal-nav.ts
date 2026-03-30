@@ -5,18 +5,25 @@ export type NavItem = {
 
 export type NavGroup = {
   label: string;
-  icon: "order" | "product" | "marketing" | "customer" | "finance" | "data" | "shop" | "dashboard";
+  icon: "order" | "product" | "marketing" | "customer" | "finance" | "data" | "shop" | "dashboard" | "wholesale";
   items: NavItem[];
+  standalone?: boolean;
 };
 
 export const portalNav: NavGroup[] = [
+  {
+    label: "Wholesale Centre",
+    icon: "wholesale",
+    standalone: true,
+    items: [{ label: "Wholesale Centre", href: "/portal/wholesale-centre" }],
+  },
   {
     label: "Dashboard",
     icon: "dashboard",
     items: [{ label: "Overview", href: "/portal/dashboard" }],
   },
   {
-    label: "Order",
+    label: "Orders",
     icon: "order",
     items: [
       { label: "My Orders", href: "/portal/orders/my-orders" },

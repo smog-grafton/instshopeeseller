@@ -5,50 +5,124 @@ import Image from "next/image";
 import { getSellerOrders, updateSellerOrderStatus } from "@/lib/api-client";
 import { isBackendImage } from "@/lib/utils";
 
+type ShippingAddress = {
+  fullName?: string;
+  phoneNumber?: string;
+  streetAddress?: string;
+  stateArea?: string;
+  postalCode?: string;
+};
+
+type OrderItemRecord = {
+  id: number;
+  title: string;
+  variation?: string | null;
+  quantity: number;
+  unit_price: number | string;
+  image_url?: string | null;
+};
+
 type OrderRecord = {
   id: number;
   order_number: string;
   status: string;
   total_payment: number;
-  shipping_address_snapshot?: any;
+  shipping_subtotal?: number;
+  shipping_discount?: number;
+  fulfillment_cost?: number | null;
+  seller_payout?: number | null;
+  seller_shipping_fee?: number | null;
+  currency_symbol?: string | null;
+  shipping_address_snapshot?: ShippingAddress;
   shipping_provider?: string | null;
   tracking_number?: string | null;
   created_at: string;
   user?: { name?: string; email?: string };
-  items: any[];
+  items: OrderItemRecord[];
 };
 
 const STATUS_TABS = [
   { key: "all", label: "All" },
-  { key: "PROCESSING", label: "Processing" },
+  { key: "to-ship", label: "To Ship" },
   { key: "SHIPPED", label: "Shipped" },
   { key: "DELIVERED", label: "Delivered" },
   { key: "CANCELLED", label: "Cancelled" },
-];
+] as const;
+
+type StatusTabKey = (typeof STATUS_TABS)[number]["key"];
+
+const formatMoney = (amount: number, currencySymbol = "$") =>
+  `${currencySymbol}${Number(amount || 0).toFixed(2)}`;
 
 export default function SellerOrdersPage() {
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState<StatusTabKey>("all");
   const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
   const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [shipInfo, setShipInfo] = useState<Record<number, { provider: string; tracking: string }>>({});
 
-  const fetchOrders = () => {
-    setLoading(true);
-    getSellerOrders({
-      status: status === "all" ? undefined : status,
-      search: search.trim() || undefined,
-    })
-      .then((res) => {
-        const data = res.orders?.data || [];
-        setOrders(data);
-      })
-      .finally(() => setLoading(false));
+  const fetchOrders = async (nextStatus: StatusTabKey = status, nextSearch = appliedSearch) => {
+    const query = nextSearch.trim() || undefined;
+    const request =
+      nextStatus === "to-ship"
+        ? Promise.all([
+            getSellerOrders({ status: "PAID", search: query }),
+            getSellerOrders({ status: "PROCESSING", search: query }),
+          ]).then(([paidRes, processingRes]) => {
+            const combined = [
+              ...(paidRes.orders?.data || []),
+              ...(processingRes.orders?.data || []),
+            ];
+            combined.sort((a, b) => b.id - a.id);
+            return combined;
+          })
+        : getSellerOrders({
+            status: nextStatus === "all" ? undefined : nextStatus,
+            search: query,
+          }).then((res) => res.orders?.data || []);
+
+    const data = await request;
+    setOrders(data);
   };
 
   useEffect(() => {
-    fetchOrders();
-  }, [status]);
+    let active = true;
+
+    const loadOrders = async () => {
+      const query = appliedSearch.trim();
+      const nextStatus = status;
+      const queryValue = query || undefined;
+      const request =
+        nextStatus === "to-ship"
+          ? Promise.all([
+              getSellerOrders({ status: "PAID", search: queryValue }),
+              getSellerOrders({ status: "PROCESSING", search: queryValue }),
+            ]).then(([paidRes, processingRes]) => {
+              const combined = [
+                ...(paidRes.orders?.data || []),
+                ...(processingRes.orders?.data || []),
+              ];
+              combined.sort((a, b) => b.id - a.id);
+              return combined;
+            })
+          : getSellerOrders({
+              status: nextStatus === "all" ? undefined : nextStatus,
+              search: queryValue,
+            }).then((res) => res.orders?.data || []);
+
+      const data = await request;
+      if (!active) return;
+      setOrders(data);
+      setLoading(false);
+    };
+
+    void loadOrders();
+
+    return () => {
+      active = false;
+    };
+  }, [appliedSearch, status]);
 
   const totalOrders = useMemo(() => orders.length, [orders]);
 
@@ -60,6 +134,19 @@ export default function SellerOrdersPage() {
         tracking: field === "tracking" ? value : prev[id]?.tracking || "",
       },
     }));
+  };
+
+  const handleStatusUpdate = async (
+    orderId: number,
+    payload: { status: string; shipping_provider?: string; tracking_number?: string }
+  ) => {
+    try {
+      await updateSellerOrderStatus(orderId, payload);
+      fetchOrders();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to update this order right now.";
+      window.alert(message);
+    }
   };
 
   return (
@@ -77,7 +164,17 @@ export default function SellerOrdersPage() {
             placeholder="Search order number..."
             className="h-9 px-3 border border-gray-200 rounded text-sm w-full md:w-64"
           />
-          <button onClick={fetchOrders} className="h-9 px-3 border border-gray-200 rounded text-sm hover:bg-gray-50">
+          <button
+            onClick={() => {
+              setLoading(true);
+              if (appliedSearch === search) {
+                void fetchOrders(status, search);
+                return;
+              }
+              setAppliedSearch(search);
+            }}
+            className="h-9 px-3 border border-gray-200 rounded text-sm hover:bg-gray-50"
+          >
             Search
           </button>
           <div className="ml-auto text-sm text-gray-500">Total: {totalOrders}</div>
@@ -87,7 +184,10 @@ export default function SellerOrdersPage() {
           {STATUS_TABS.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setStatus(tab.key)}
+              onClick={() => {
+                setLoading(true);
+                setStatus(tab.key);
+              }}
               className={`relative py-2 text-sm ${status === tab.key ? "text-orange-600" : "text-gray-600"}`}
             >
               {tab.label}
@@ -152,8 +252,55 @@ export default function SellerOrdersPage() {
                     })}
                   </div>
 
+                  {(() => {
+                    const currencySymbol = order.currency_symbol || "$";
+                    const sellerShippingFee = Number(order.seller_shipping_fee ?? order.shipping_subtotal ?? 0);
+                    const reservedOnShip = Number(order.fulfillment_cost ?? 0);
+                    const expectedProfit = Number(
+                      order.seller_payout ?? Math.max(Number(order.total_payment || 0) - reservedOnShip, 0)
+                    );
+
+                    return (
+                      <div className="rounded-md border border-amber-100 bg-amber-50/70 p-3">
+                        <div className="grid grid-cols-2 gap-3 text-xs text-gray-600 lg:grid-cols-4">
+                          <div>
+                            <div className="uppercase tracking-wide text-[11px] text-gray-500">Customer paid</div>
+                            <div className="mt-1 text-sm font-semibold text-gray-900">
+                              {formatMoney(Number(order.total_payment || 0), currencySymbol)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="uppercase tracking-wide text-[11px] text-gray-500">Shop pays shipping</div>
+                            <div className="mt-1 text-sm font-semibold text-gray-900">
+                              {formatMoney(sellerShippingFee, currencySymbol)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="uppercase tracking-wide text-[11px] text-gray-500">Reserved on ship</div>
+                            <div className="mt-1 text-sm font-semibold text-gray-900">
+                              {formatMoney(reservedOnShip, currencySymbol)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="uppercase tracking-wide text-[11px] text-gray-500">Expected profit</div>
+                            <div className="mt-1 text-sm font-semibold text-emerald-700">
+                              {formatMoney(expectedProfit, currencySymbol)}
+                            </div>
+                          </div>
+                        </div>
+                        {sellerShippingFee > 0 && (
+                          <div className="mt-2 text-xs text-amber-900">
+                            Shipping is covered by the shop on this order and is reserved from the seller wallet when you mark it shipped.
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-2 border-t border-gray-100">
-                    <div className="text-sm text-gray-700">Total: {Number(order.total_payment).toFixed(2)}</div>
+                    <div className="text-sm text-gray-700">
+                      Total: {formatMoney(Number(order.total_payment), order.currency_symbol || "$")}
+                    </div>
                     <div className="flex flex-wrap items-center gap-2">
                       {(order.status === "PROCESSING" || order.status === "PAID") && (
                         <>
@@ -171,21 +318,23 @@ export default function SellerOrdersPage() {
                           />
                           <button
                             onClick={() =>
-                              updateSellerOrderStatus(order.id, {
+                              handleStatusUpdate(order.id, {
                                 status: "SHIPPED",
                                 shipping_provider: shipInfo[order.id]?.provider || undefined,
                                 tracking_number: shipInfo[order.id]?.tracking || undefined,
-                              }).then(fetchOrders)
+                              })
                             }
                             className="h-8 px-3 bg-orange-600 text-white rounded text-xs hover:bg-orange-700"
                           >
-                            Mark Shipped
+                            {Number(order.fulfillment_cost || 0) > 0
+                              ? `Ship & Reserve ${formatMoney(Number(order.fulfillment_cost || 0), order.currency_symbol || "$")}`
+                              : "Mark Shipped"}
                           </button>
                         </>
                       )}
                       {order.status === "SHIPPED" && (
                         <button
-                          onClick={() => updateSellerOrderStatus(order.id, { status: "DELIVERED" }).then(fetchOrders)}
+                          onClick={() => handleStatusUpdate(order.id, { status: "DELIVERED" })}
                           className="h-8 px-3 border border-gray-200 rounded text-xs hover:bg-gray-50"
                         >
                           Mark Delivered

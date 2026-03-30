@@ -5,18 +5,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
-import { getNotifications, logoutApi } from "@/lib/api-client";
+import { logoutApi } from "@/lib/api-client";
 import { getBuyerLoginUrl, isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
 
 export default function PortalTopbar() {
   const { user } = useAuth();
   const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [loadingNotifications, setLoadingNotifications] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const notifRef = useRef<HTMLDivElement>(null);
 
   const avatarUrl = (() => {
     if (!user?.avatarUrl) return null;
@@ -29,30 +25,10 @@ export default function PortalTopbar() {
       if (menuRef.current && !menuRef.current.contains(target)) {
         setShowUserMenu(false);
       }
-      if (notifRef.current && !notifRef.current.contains(target)) {
-        setShowNotifications(false);
-      }
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
-
-  const toggleNotifications = async () => {
-    if (showNotifications) {
-      setShowNotifications(false);
-      return;
-    }
-    setShowNotifications(true);
-    setLoadingNotifications(true);
-    try {
-      const res = await getNotifications("wallet");
-      setNotifications(res.notifications || []);
-    } catch {
-      setNotifications([]);
-    } finally {
-      setLoadingNotifications(false);
-    }
-  };
 
   const onLogout = async () => {
     await logoutApi();
@@ -67,41 +43,13 @@ export default function PortalTopbar() {
       </div>
       <div className="flex items-center gap-3 sm:gap-4 min-w-0 overflow-x-auto overflow-y-hidden flex-1 justify-end md:flex-initial [scrollbar-width:thin]">
         <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
-          <Link href="/portal/marketing/centre" className="text-gray-500 hover:text-gray-700 flex-shrink-0" title="Apps">
+          <Link href="/portal/wholesale-centre" className="text-gray-500 hover:text-gray-700 flex-shrink-0" title="Wholesale Centre">
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-              <path d="M5 5h4v4H5zM10 5h4v4h-4zM15 5h4v4h-4zM5 10h4v4H5zM10 10h4v4h-4zM15 10h4v4h-4zM5 15h4v4H5zM10 15h4v4h-4zM15 15h4v4h-4z" stroke="currentColor" strokeWidth="1.4" />
+              <path d="M4 8.5h16v10.5H4z" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M7 8.5V5h10v3.5" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M8 13h3m2 0h3" stroke="currentColor" strokeWidth="1.5" />
             </svg>
           </Link>
-          <div className="relative flex-shrink-0" ref={notifRef}>
-            <button type="button" onClick={toggleNotifications} className="text-gray-500 hover:text-gray-700" title="Notifications">
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                <path d="M6 9a6 6 0 1112 0v5l2 2H4l2-2V9z" stroke="currentColor" strokeWidth="1.6" />
-                <path d="M9 19a3 3 0 006 0" stroke="currentColor" strokeWidth="1.6" />
-              </svg>
-            </button>
-            {showNotifications && (
-              <div className="absolute right-0 mt-3 w-[min(20rem,calc(100vw-2rem))] max-w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-30">
-                <div className="px-4 py-3 border-b border-gray-100 text-sm font-semibold text-gray-800">Notifications</div>
-                <div className="max-h-72 overflow-auto">
-                  {loadingNotifications ? (
-                    <div className="p-4 text-sm text-gray-500">Loading notifications...</div>
-                  ) : notifications.length === 0 ? (
-                    <div className="p-4 text-sm text-gray-500">No notifications yet.</div>
-                  ) : (
-                    notifications.slice(0, 6).map((n: any) => (
-                      <div key={n.id} className="px-4 py-3 border-b border-gray-100">
-                        <div className="text-sm text-gray-800">{n.title || "Notification"}</div>
-                        <div className="text-xs text-gray-500 mt-1">{n.message || ""}</div>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <div className="px-4 py-3 text-xs text-gray-500 border-t border-gray-100">
-                  Showing latest wallet updates.
-                </div>
-              </div>
-            )}
-          </div>
           <button
             type="button"
             className="text-gray-500 hover:text-gray-700 flex-shrink-0"

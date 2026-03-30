@@ -1,11 +1,23 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { portalNav } from "@/components/portal-nav";
+import { getCatalogProducts, getSellerOrders } from "@/lib/api-client";
 
-type IconName = "order" | "product" | "marketing" | "customer" | "finance" | "data" | "shop" | "dashboard";
+type IconName =
+  | "order"
+  | "product"
+  | "marketing"
+  | "customer"
+  | "finance"
+  | "data"
+  | "shop"
+  | "dashboard"
+  | "wholesale";
+
+type IndicatorKey = "orders" | "wholesale";
 
 const iconMap: Record<IconName, React.ReactElement> = {
   dashboard: (
@@ -55,6 +67,33 @@ const iconMap: Record<IconName, React.ReactElement> = {
       <path d="M7 9l2-5h6l2 5" stroke="currentColor" strokeWidth="1.6" />
     </svg>
   ),
+  wholesale: (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+      <path d="M4 8.5h16v10.5H4z" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M7 8.5V5h10v3.5" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M8 13h3m2 0h3" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  ),
+};
+
+const badgeTone: Record<IndicatorKey, string> = {
+  orders: "bg-orange-100 text-orange-700 ring-1 ring-inset ring-orange-200",
+  wholesale: "bg-emerald-100 text-emerald-700 ring-1 ring-inset ring-emerald-200",
+};
+
+const getPaginationTotal = (value?: { total?: number; data?: unknown[] }) => {
+  if (!value) return 0;
+  if (typeof value.total === "number") return value.total;
+  if (Array.isArray(value.data)) return value.data.length;
+  return 0;
+};
+
+const formatBadgeCount = (count: number) => (count > 99 ? "99+" : String(count));
+
+const groupIndicatorKey = (label: string): IndicatorKey | null => {
+  if (label === "Orders") return "orders";
+  if (label === "Wholesale Centre") return "wholesale";
+  return null;
 };
 
 export default function PortalSidebar({
@@ -68,13 +107,75 @@ export default function PortalSidebar({
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(portalNav.map((g) => [g.label, true]))
   );
+  const [indicators, setIndicators] = useState<Record<IndicatorKey, number>>({
+    orders: 0,
+    wholesale: 0,
+  });
 
   const activeGroup = useMemo(() => {
     const match = portalNav.find((group) => group.items.some((item) => pathname.startsWith(item.href)));
-    return match?.label ?? "Dashboard";
+    return match?.label ?? "Wholesale Centre";
   }, [pathname]);
 
+  const loadIndicators = useCallback(async () => {
+    const [processingResult, paidResult, wholesaleResult] = await Promise.allSettled([
+      getSellerOrders({ status: "PROCESSING" }),
+      getSellerOrders({ status: "PAID" }),
+      getCatalogProducts({ listing_type: "wholesale_centre", per_page: 1 }),
+    ]);
+
+    const processingOrders =
+      processingResult.status === "fulfilled" ? getPaginationTotal(processingResult.value.orders) : 0;
+    const paidOrders =
+      paidResult.status === "fulfilled" ? getPaginationTotal(paidResult.value.orders) : 0;
+    const wholesaleCount =
+      wholesaleResult.status === "fulfilled" ? getPaginationTotal(wholesaleResult.value.products) : 0;
+
+    return {
+      orders: processingOrders + paidOrders,
+      wholesale: wholesaleCount,
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const refreshIndicators = async () => {
+      const next = await loadIndicators();
+      if (active) {
+        setIndicators(next);
+      }
+    };
+
+    void refreshIndicators();
+
+    const handleFocus = () => {
+      void refreshIndicators();
+    };
+
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      active = false;
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [loadIndicators, pathname]);
+
   const isOpen = (label: string) => openGroups[label] ?? true;
+
+  const renderBadge = (indicatorKey: IndicatorKey | null) => {
+    if (!indicatorKey) return null;
+    const count = indicators[indicatorKey];
+    if (count < 1) return null;
+
+    return (
+      <span
+        className={`inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-sm px-1.5 text-[11px] font-semibold ${badgeTone[indicatorKey]}`}
+      >
+        {formatBadgeCount(count)}
+      </span>
+    );
+  };
 
   return (
     <aside
@@ -104,6 +205,34 @@ export default function PortalSidebar({
       <div className="px-2 py-4 space-y-2 overflow-y-auto h-[calc(100vh-56px)]">
         {portalNav.map((group) => {
           const open = isOpen(group.label);
+          const indicatorKey = groupIndicatorKey(group.label);
+          const firstHref = group.items[0]?.href ?? "/portal/dashboard";
+          const groupIsActive = pathname.startsWith(firstHref) || activeGroup === group.label;
+
+          if (group.standalone) {
+            return (
+              <Link
+                key={group.label}
+                href={firstHref}
+                className={`flex items-center justify-between gap-2 rounded px-2 py-2 text-sm ${
+                  groupIsActive ? "bg-orange-50 text-orange-600" : "text-gray-700 hover:bg-gray-50"
+                }`}
+                title={collapsed ? group.label : undefined}
+              >
+                <span className="flex items-center gap-2 min-w-0">
+                  <span className="relative text-gray-400">
+                    {iconMap[group.icon]}
+                    {collapsed && indicators.wholesale > 0 && (
+                      <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-emerald-500" />
+                    )}
+                  </span>
+                  {!collapsed && <span className="truncate">{group.label}</span>}
+                </span>
+                {!collapsed && renderBadge(indicatorKey)}
+              </Link>
+            );
+          }
+
           return (
             <div key={group.label} className="text-gray-700">
               <button
@@ -114,20 +243,29 @@ export default function PortalSidebar({
                 }`}
                 title={collapsed ? group.label : undefined}
               >
-                <span className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-400">{iconMap[group.icon]}</span>
-                  {!collapsed && <span>{group.label}</span>}
+                <span className="flex items-center gap-2 text-sm min-w-0">
+                  <span className="relative text-gray-400">
+                    {iconMap[group.icon]}
+                    {collapsed && indicatorKey && indicators[indicatorKey] > 0 && (
+                      <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-orange-500" />
+                    )}
+                  </span>
+                  {!collapsed && <span className="truncate">{group.label}</span>}
                 </span>
                 {!collapsed && (
-                  <svg className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none">
-                    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.6" />
-                  </svg>
+                  <span className="ml-2 flex items-center gap-2">
+                    {renderBadge(indicatorKey)}
+                    <svg className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none">
+                      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.6" />
+                    </svg>
+                  </span>
                 )}
               </button>
               {open && (
                 <div className={`pl-7 pr-2 ${collapsed ? "hidden" : "block"}`}>
                   {group.items.map((item) => {
                     const active = pathname.startsWith(item.href);
+                    const itemBadge = item.label === "My Orders" ? renderBadge(indicatorKey) : null;
                     return (
                       <Link
                         key={item.href}
@@ -137,7 +275,8 @@ export default function PortalSidebar({
                         }`}
                       >
                         <span className="text-gray-400 flex-shrink-0">{iconMap[group.icon]}</span>
-                        {item.label}
+                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        {itemBadge}
                       </Link>
                     );
                   })}

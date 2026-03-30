@@ -64,7 +64,11 @@ function AddNewProductContent() {
   const loadCatalog = async () => {
     setCatalogLoading(true);
     try {
-      const res = await getCatalogProducts({ search: catalogSearch || undefined, per_page: 20 });
+      const res = await getCatalogProducts({
+        search: catalogSearch || undefined,
+        per_page: 20,
+        listing_type: "standard",
+      });
       setCatalogProducts(res.products.data);
     } finally {
       setCatalogLoading(false);
@@ -75,9 +79,11 @@ function AddNewProductContent() {
     if (tab === "catalog") loadCatalog();
   }, [tab]);
 
-  const onAddCatalog = async (id: number, goEdit = false) => {
-    if (!hasFunds) return alert("Please top up your wallet before adding products.");
+  const onAddCatalog = async (p: { id: number; listing_type?: string }, goEdit = false) => {
+    const isWholesale = p.listing_type === "wholesale_centre";
+    if (!isWholesale && !hasFunds) return alert("Please top up your wallet before adding products.");
     try {
+      const id = p.id;
       const res = await addCatalogProductToShop(id);
       alert("Catalog product added to your shop.");
       if (goEdit) router.push(`/portal/products/edit/${res.product.id}`);
@@ -418,13 +424,13 @@ function AddNewProductContent() {
                     <div className="text-xs text-gray-500 mt-1">Stock: {p.available_stock}</div>
                     <div className="mt-3 flex gap-2">
                       <button
-                        onClick={() => onAddCatalog(p.id, false)}
+                        onClick={() => onAddCatalog(p, false)}
                         className="h-9 px-3 bg-orange-600 text-white text-sm rounded hover:bg-orange-700"
                       >
                         Add to My Products
                       </button>
                       <button
-                        onClick={() => onAddCatalog(p.id, true)}
+                        onClick={() => onAddCatalog(p, true)}
                         className="h-9 px-3 border border-gray-200 text-sm rounded hover:bg-gray-50"
                       >
                         Add & Edit

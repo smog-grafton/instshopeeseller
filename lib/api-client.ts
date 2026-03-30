@@ -97,19 +97,42 @@ export async function submitSellerApplication(data: SubmitSellerApplicationPaylo
 }
 
 export async function getSellerDashboard() {
-  return apiFetch<any>("/seller/dashboard");
+  return apiFetch<{
+    success: boolean;
+    seller: {
+      is_seller: boolean;
+      seller_status: string | null;
+      seller_approved_date?: string | null;
+    };
+    vendor: {
+      id: number;
+      name?: string | null;
+      slug?: string | null;
+    } | null;
+    wallet: {
+      balance: string;
+      available_balance: string;
+      pending_balance: string;
+      currency: string;
+    };
+    stats: {
+      total_products: number;
+      total_orders: number;
+      pending_orders: number;
+    };
+  }>("/seller/dashboard");
 }
 
 export async function getWallet() {
-  return apiFetch<{ wallet: { balance: string; currency: string; available_balance: string } }>("/wallet");
+  return apiFetch<{ wallet: { balance: string; currency: string; available_balance: string } }>("/wallet?scope=seller");
 }
 
 export async function getWalletTransactions() {
-  return apiFetch<{ success: boolean; transactions: any }>(`/wallet/transactions`);
+  return apiFetch<{ success: boolean; transactions: any }>(`/wallet/transactions?scope=seller`);
 }
 
 export async function getDepositPaymentMethods() {
-  return apiFetch<{ success: boolean; methods: any[] }>(`/wallet/deposit-methods`);
+  return apiFetch<{ success: boolean; methods: any[] }>(`/wallet/deposit-methods?scope=seller`);
 }
 
 export async function requestWalletTopup(data: {
@@ -125,6 +148,7 @@ export async function requestWalletTopup(data: {
   if (data.reference) form.append("reference", data.reference);
   if (data.notes) form.append("notes", data.notes);
   if (data.proof) form.append("proof", data.proof);
+  form.append("scope", "seller");
   return createMultipartRequest(`/wallet/topup/request`, form);
 }
 
@@ -138,12 +162,51 @@ export async function requestWalletWithdrawal(data: {
 }) {
   return apiFetch<{ success: boolean; message: string; request: any }>(`/wallet/withdraw/request`, {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      ...data,
+      scope: "seller",
+    }),
   });
 }
 
 export async function getSellerAnalyticsOverview() {
-  return apiFetch<{ success: boolean; overview: { total_orders: number; total_items: number; total_revenue: number }; daily: { date: string; revenue: number; items: number }[]; top_products: { id: number; title: string; units: number; revenue: number }[] }>(
+  return apiFetch<{
+    success: boolean;
+    overview: {
+      total_orders: number;
+      total_items: number;
+      total_revenue: number;
+      gross_sales: number;
+      expected_profit: number;
+      realized_profit: number;
+      pending_profit: number;
+      shipping_absorbed: number;
+      funding_needed: number;
+      reserved_capital: number;
+      order_buckets: {
+        awaiting_payment: number;
+        to_ship: number;
+        in_transit: number;
+        delivered: number;
+        cancelled: number;
+      };
+    };
+    daily: {
+      date: string;
+      orders: number;
+      items: number;
+      revenue: number;
+      shipping_absorbed: number;
+      expected_profit: number;
+      realized_profit: number;
+    }[];
+    top_products: {
+      id: number;
+      title: string;
+      units: number;
+      revenue: number;
+    }[];
+  }>(
     "/seller/analytics/overview",
   );
 }
@@ -277,11 +340,60 @@ export async function updateSellerShop(data: Record<string, any>) {
   });
 }
 
+/** Multipart uploads (logo / cover / collection image). */
+function sellerMultipart<T>(path: string, form: FormData): Promise<T> {
+  return fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    body: form,
+    credentials: "include",
+    headers: {
+      "X-Requested-With": "XMLHttpRequest",
+      Accept: "application/json",
+    },
+  }).then(async (res) => {
+    const data = await res.json();
+    if (!res.ok) {
+      const err = new Error((data as { message?: string }).message || "Request failed") as Error & {
+        status?: number;
+        errors?: Record<string, string[]>;
+      };
+      err.status = res.status;
+      err.errors = (data as { errors?: Record<string, string[]> }).errors;
+      throw err;
+    }
+    return data as T;
+  });
+}
+
+export async function uploadSellerShopLogo(file: File) {
+  const form = new FormData();
+  form.append("logo", file);
+  return sellerMultipart<{ success: boolean; message?: string; shop: any }>(`/seller/shop/logo`, form);
+}
+
+export async function uploadSellerShopCover(file: File) {
+  const form = new FormData();
+  form.append("cover", file);
+  return sellerMultipart<{ success: boolean; message?: string; shop: any }>(`/seller/shop/cover`, form);
+}
+
+export async function uploadSellerCollectionImage(collectionId: number, file: File) {
+  const form = new FormData();
+  form.append("image", file);
+  return sellerMultipart<{ success: boolean; message?: string; collection: any }>(
+    `/seller/collections/${collectionId}/image`,
+    form
+  );
+}
+
 export async function getSellerCollections() {
   return apiFetch<{ success: boolean; collections: any[] }>(`/seller/collections`);
 }
 
-export async function createSellerCollection(data: Record<string, any>) {
+export async function createSellerCollection(data: Record<string, any> | FormData) {
+  if (data instanceof FormData) {
+    return sellerMultipart<{ success: boolean; message: string; collection: any }>(`/seller/collections`, data);
+  }
   return apiFetch<{ success: boolean; message: string; collection: any }>(`/seller/collections`, {
     method: "POST",
     body: JSON.stringify(data),
@@ -347,7 +459,10 @@ export async function sendSellerChatTyping(threadId: string, typing: boolean) {
 }
 
 export async function getNotifications(type?: string) {
-  const suffix = type ? `?type=${encodeURIComponent(type)}` : "";
+  const query = new URLSearchParams();
+  if (type) query.set("type", type);
+  if (type === "wallet") query.set("scope", "seller");
+  const suffix = query.toString() ? `?${query.toString()}` : "";
   return apiFetch<{ success: boolean; notifications: any }>(`/notifications${suffix}`);
 }
 
@@ -533,13 +648,20 @@ export async function createSellerProduct(formData: FormData) {
   return data as { success: boolean; message: string; product: any };
 }
 
-export async function getCatalogProducts(params?: { search?: string; category?: string; per_page?: number }) {
+export async function getCatalogProducts(params?: {
+  search?: string;
+  category?: string;
+  per_page?: number;
+  /** `standard` (default catalog) or `wholesale_centre` */
+  listing_type?: string;
+}) {
   const query = new URLSearchParams();
   if (params?.search) query.set("search", params.search);
   if (params?.category) query.set("category", params.category);
   if (params?.per_page) query.set("per_page", String(params.per_page));
+  if (params?.listing_type) query.set("listing_type", params.listing_type);
   const q = query.toString();
-  return apiFetch<{ success: boolean; products: { data: any[] } }>(`/catalog-products${q ? `?${q}` : ""}`);
+  return apiFetch<{ success: boolean; products: { data: any[]; total?: number } }>(`/catalog-products${q ? `?${q}` : ""}`);
 }
 
 export async function uploadProductImages(productId: number, files: File[], thumbnailIndex = -1) {
