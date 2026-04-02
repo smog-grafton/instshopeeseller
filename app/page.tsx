@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { getBuyerLoginUrl } from "@/lib/utils";
+import { resolveSellerPortalEntry } from "@/lib/portal-access";
 
 export default function HomePage() {
   const { user, isLoading } = useAuth();
@@ -19,12 +20,14 @@ export default function HomePage() {
       return;
     }
 
-    // Approved or pending (submitted) → dashboard; else onboarding
-    if (user.sellerStatus === "approved" || user.sellerStatus === "pending") {
-      router.push("/portal/dashboard");
-    } else {
-      router.push("/portal/my-onboarding");
+    const destination = resolveSellerPortalEntry(user);
+
+    if (destination.type === "external") {
+      window.location.href = destination.href;
+      return;
     }
+
+    router.replace(destination.href);
   }, [user, isLoading, router]);
 
   return (

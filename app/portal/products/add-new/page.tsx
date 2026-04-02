@@ -8,7 +8,9 @@ import {
   createSellerProduct,
   getCatalogProducts,
   getCategories,
+  getSellerProductSettings,
   getWallet,
+  type SellerProductSettings,
 } from "@/lib/api-client";
 
 type Spec = { label: string; value: string };
@@ -22,6 +24,7 @@ function AddNewProductContent() {
 
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [currency, setCurrency] = useState("USD");
+  const [productSettings, setProductSettings] = useState<SellerProductSettings | null>(null);
 
   // Custom product fields
   const [title, setTitle] = useState("");
@@ -52,6 +55,7 @@ function AddNewProductContent() {
   const [catalogLoading, setCatalogLoading] = useState(false);
 
   const hasFunds = walletBalance > 0;
+  const canEditProducts = productSettings?.can_edit_products ?? true;
 
   useEffect(() => {
     getWallet().then((res) => {
@@ -59,6 +63,7 @@ function AddNewProductContent() {
       setCurrency(res.wallet.currency || "USD");
     }).catch(() => {});
     getCategories().then((res) => setCategories(res.categories || [])).catch(() => {});
+    getSellerProductSettings().then((res) => setProductSettings(res.settings)).catch(() => setProductSettings(null));
   }, []);
 
   const loadCatalog = async () => {
@@ -86,7 +91,9 @@ function AddNewProductContent() {
       const id = p.id;
       const res = await addCatalogProductToShop(id);
       alert("Catalog product added to your shop.");
-      if (goEdit) router.push(`/portal/products/edit/${res.product.id}`);
+      if (goEdit) {
+        router.push(canEditProducts ? `/portal/products/edit/${res.product.id}` : `/portal/products/preview/${res.product.id}`);
+      }
     } catch (e: any) {
       alert(e.message || "Failed to add product");
     }
@@ -397,6 +404,11 @@ function AddNewProductContent() {
 
         {tab === "catalog" && (
           <div className="p-6 space-y-4">
+            {!canEditProducts && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                {productSettings?.edit_lock_reason || "Catalog products added here will be visible in your shop, but editing stays disabled for sellers."}
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -433,7 +445,7 @@ function AddNewProductContent() {
                         onClick={() => onAddCatalog(p, true)}
                         className="h-9 px-3 border border-gray-200 text-sm rounded hover:bg-gray-50"
                       >
-                        Add & Edit
+                        {canEditProducts ? "Add & Edit" : "Add & Preview"}
                       </button>
                     </div>
                   </div>

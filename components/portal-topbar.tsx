@@ -8,7 +8,7 @@ import { useAuth } from "@/components/auth-provider";
 import { logoutApi } from "@/lib/api-client";
 import { getBuyerLoginUrl, isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
 
-export default function PortalTopbar() {
+export default function PortalTopbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { user } = useAuth();
   const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -39,6 +39,16 @@ export default function PortalTopbar() {
   return (
     <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between gap-2 px-3 sm:px-4 sticky top-0 z-20 min-w-0">
       <div className="flex items-center gap-2 flex-shrink-0">
+        <button
+          type="button"
+          onClick={onOpenMenu}
+          className="inline-flex h-9 w-9 items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-50 lg:hidden"
+          aria-label="Open menu"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
+            <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+          </svg>
+        </button>
         <span className="text-sm font-semibold text-gray-800 hidden md:inline">Shopee Seller Centre</span>
       </div>
       <div className="flex items-center gap-3 sm:gap-4 min-w-0 overflow-x-auto overflow-y-hidden flex-1 justify-end md:flex-initial [scrollbar-width:thin]">

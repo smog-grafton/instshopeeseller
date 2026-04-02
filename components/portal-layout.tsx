@@ -21,26 +21,44 @@ function useMediaQuery(query: string) {
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isOnboarding = pathname.startsWith("/portal/my-onboarding");
-  const [collapsed, setCollapsed] = useState(false);
-  const isMobileOrTablet = useMediaQuery("(max-width: 1023px)");
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("portal_sidebar_collapsed");
     if (saved !== null) {
-      setCollapsed(saved === "1");
-      return;
+      setDesktopCollapsed(saved === "1");
     }
-    const m = window.matchMedia("(max-width: 1023px)");
-    setCollapsed(m.matches);
   }, []);
 
-  const toggle = () => {
-    setCollapsed((c) => {
-      const next = !c;
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  const toggleDesktopCollapse = () => {
+    setDesktopCollapsed((current) => {
+      const next = !current;
       window.localStorage.setItem("portal_sidebar_collapsed", next ? "1" : "0");
       return next;
     });
   };
+
+  const openMobileMenu = () => {
+    if (!isDesktop) {
+      setMobileMenuOpen(true);
+    }
+  };
+
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+  };
+
+  useEffect(() => {
+    if (isDesktop) {
+      setMobileMenuOpen(false);
+    }
+  }, [isDesktop]);
 
   if (isOnboarding) {
     return <>{children}</>;
@@ -49,17 +67,22 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="flex relative">
-        {isMobileOrTablet && !collapsed && (
+        {!isDesktop && mobileMenuOpen && (
           <button
             type="button"
             aria-label="Close menu"
-            className="fixed inset-0 bg-black/30 z-[35] md:hidden"
-            onClick={toggle}
+            className="fixed inset-0 z-[35] bg-black/30 lg:hidden"
+            onClick={closeMobileMenu}
           />
         )}
-        <PortalSidebar collapsed={collapsed} onToggleCollapse={toggle} />
+        <PortalSidebar
+          collapsed={desktopCollapsed}
+          mobileOpen={mobileMenuOpen}
+          onCloseMobile={closeMobileMenu}
+          onToggleCollapse={toggleDesktopCollapse}
+        />
         <div className="flex-1 min-w-0 relative">
-          <PortalTopbar />
+          <PortalTopbar onOpenMenu={openMobileMenu} />
           <main className="p-4 sm:p-6 pr-4 sm:pr-20">{children}</main>
           <PortalRightbar />
         </div>

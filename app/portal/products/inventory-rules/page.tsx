@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { getSellerProducts, updateSellerProduct } from "@/lib/api-client";
+import { getSellerProducts, getSellerProductSettings, updateSellerProduct, type SellerProductSettings } from "@/lib/api-client";
 
 function InventoryRulesContent() {
   const params = useSearchParams();
@@ -10,10 +10,17 @@ function InventoryRulesContent() {
   const [products, setProducts] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [productSettings, setProductSettings] = useState<SellerProductSettings | null>(null);
+
+  const canEditProducts = productSettings?.can_edit_products ?? true;
 
   const load = async () => {
-    const res = await getSellerProducts({ search: search || undefined, per_page: 50 });
-    setProducts(res.products.data);
+    const [productsRes, settingsRes] = await Promise.all([
+      getSellerProducts({ search: search || undefined, per_page: 50 }),
+      getSellerProductSettings().catch(() => null),
+    ]);
+    setProducts(productsRes.products.data);
+    setProductSettings(settingsRes?.settings ?? null);
   };
 
   useEffect(() => {
@@ -26,6 +33,8 @@ function InventoryRulesContent() {
   }, [products, search]);
 
   const onSave = async (p: any) => {
+    if (!canEditProducts) return;
+
     setSavingId(p.id);
     try {
       await updateSellerProduct(p.id, {
@@ -51,6 +60,12 @@ function InventoryRulesContent() {
         <p className="text-sm text-gray-500">Configure low stock alerts and auto-hide behavior.</p>
       </div>
 
+      {!canEditProducts && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+          {productSettings?.edit_lock_reason || "Inventory changes are locked because seller product editing is disabled."}
+        </div>
+      )}
+
       <div className="bg-white border border-gray-200 rounded-lg p-4">
         <input
           value={search}
@@ -75,10 +90,10 @@ function InventoryRulesContent() {
                 </div>
                 <button
                   onClick={() => onSave(p)}
-                  disabled={savingId === p.id}
+                  disabled={!canEditProducts || savingId === p.id}
                   className="h-8 px-3 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 disabled:opacity-50"
                 >
-                  {savingId === p.id ? "Saving..." : "Save"}
+                  {!canEditProducts ? "Locked" : savingId === p.id ? "Saving..." : "Save"}
                 </button>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-3 text-sm">
@@ -88,6 +103,7 @@ function InventoryRulesContent() {
                     type="number"
                     value={p.low_stock_threshold ?? 5}
                     onChange={(e) => setProducts((list) => list.map((x) => (x.id === p.id ? { ...x, low_stock_threshold: e.target.value } : x)))}
+                    disabled={!canEditProducts}
                     className="mt-1 h-8 px-2 border border-gray-200 rounded text-sm w-full"
                   />
                 </div>
@@ -97,6 +113,7 @@ function InventoryRulesContent() {
                     type="number"
                     value={p.max_per_order ?? ""}
                     onChange={(e) => setProducts((list) => list.map((x) => (x.id === p.id ? { ...x, max_per_order: e.target.value } : x)))}
+                    disabled={!canEditProducts}
                     className="mt-1 h-8 px-2 border border-gray-200 rounded text-sm w-full"
                   />
                 </div>
@@ -106,6 +123,7 @@ function InventoryRulesContent() {
                     type="number"
                     value={p.restock_lead_days ?? ""}
                     onChange={(e) => setProducts((list) => list.map((x) => (x.id === p.id ? { ...x, restock_lead_days: e.target.value } : x)))}
+                    disabled={!canEditProducts}
                     className="mt-1 h-8 px-2 border border-gray-200 rounded text-sm w-full"
                   />
                 </div>
@@ -114,6 +132,7 @@ function InventoryRulesContent() {
                     type="checkbox"
                     checked={Boolean(p.auto_hide_when_out_of_stock)}
                     onChange={(e) => setProducts((list) => list.map((x) => (x.id === p.id ? { ...x, auto_hide_when_out_of_stock: e.target.checked } : x)))}
+                    disabled={!canEditProducts}
                   />
                   <span className="text-xs text-gray-600">Auto-hide</span>
                 </div>
@@ -122,6 +141,7 @@ function InventoryRulesContent() {
                     type="checkbox"
                     checked={Boolean(p.allow_backorder)}
                     onChange={(e) => setProducts((list) => list.map((x) => (x.id === p.id ? { ...x, allow_backorder: e.target.checked } : x)))}
+                    disabled={!canEditProducts}
                   />
                   <span className="text-xs text-gray-600">Allow backorder</span>
                 </div>

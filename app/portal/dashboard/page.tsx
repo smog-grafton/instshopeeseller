@@ -233,6 +233,8 @@ function EmptyState({ message }: { message: string }) {
 export default function DashboardPage() {
   const { user } = useAuth();
   const isPending = user?.sellerStatus === "pending";
+  const isSuspended = user?.sellerStatus === "suspended";
+  const isLimited = isPending || isSuspended;
   const canLoad = Boolean(user?.isSeller && user?.sellerStatus === "approved");
 
   const [loading, setLoading] = useState(true);
@@ -432,13 +434,15 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {isPending && (
+              {isLimited && (
                 <div className="mt-4 border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm leading-6 text-amber-900">
-                  Your seller application is still under review. Orders, payouts, and wholesale funding controls unlock after approval.
+                  {isPending
+                    ? "Your seller application is still under review. Orders, payouts, and wholesale funding controls unlock after approval."
+                    : "Your seller account is currently suspended. Dashboard access stays available, but seller tools remain locked until the account is restored."}
                 </div>
               )}
 
-              {!isPending && !isDashboardLoading && overview && (
+              {!isLimited && !isDashboardLoading && overview && (
                 <div className="mt-4 border border-neutral-200 bg-[linear-gradient(180deg,#ffffff_0%,#faf7f4_100%)] px-4 py-4">
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     {quickActions.map((action) => (
@@ -529,7 +533,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className={`grid gap-4 sm:grid-cols-2 xl:grid-cols-4 ${isPending ? "opacity-70" : ""}`}>
+      <div className={`grid gap-4 sm:grid-cols-2 xl:grid-cols-4 ${isLimited ? "opacity-70" : ""}`}>
         {primaryMetrics.map((metric) => (
           <MetricCard
             key={metric.title}
@@ -545,7 +549,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div className={`grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] ${isPending ? "opacity-70" : ""}`}>
+      <div className={`grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] ${isLimited ? "opacity-70" : ""}`}>
         <div className="space-y-4">
           <section className={cardShell}>
             <div className="border-b border-neutral-200 px-4 py-4 sm:px-5">
@@ -765,9 +769,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {isPending && (
+      {isLimited && (
         <div className="border border-neutral-200 bg-neutral-50 px-4 py-4 text-sm leading-6 text-neutral-600">
-          Product listing, wholesale funding, shipping confirmation, and payout movement will fully unlock after approval.
+          {isPending
+            ? "Product listing, wholesale funding, shipping confirmation, and payout movement will fully unlock after approval."
+            : "Product listing, wholesale funding, shipping confirmation, and payout movement stay locked while the seller account is suspended."}
         </div>
       )}
     </div>

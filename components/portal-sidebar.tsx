@@ -4,7 +4,8 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { portalNav } from "@/components/portal-nav";
-import { getCatalogProducts, getSellerOrders } from "@/lib/api-client";
+import { getCatalogProducts, getSellerOrders, logoutApi } from "@/lib/api-client";
+import { getBuyerLoginUrl } from "@/lib/utils";
 
 type IconName =
   | "order"
@@ -96,17 +97,22 @@ const groupIndicatorKey = (label: string): IndicatorKey | null => {
   return null;
 };
 
+const buildInitialOpenGroups = () =>
+  Object.fromEntries(portalNav.map((group) => [group.label, group.defaultOpen ?? group.important ?? false]));
+
 export default function PortalSidebar({
   collapsed,
+  mobileOpen,
+  onCloseMobile,
   onToggleCollapse,
 }: {
   collapsed: boolean;
+  mobileOpen: boolean;
+  onCloseMobile: () => void;
   onToggleCollapse: () => void;
 }) {
   const pathname = usePathname();
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(portalNav.map((g) => [g.label, true]))
-  );
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => buildInitialOpenGroups());
   const [indicators, setIndicators] = useState<Record<IndicatorKey, number>>({
     orders: 0,
     wholesale: 0,
@@ -161,7 +167,21 @@ export default function PortalSidebar({
     };
   }, [loadIndicators, pathname]);
 
-  const isOpen = (label: string) => openGroups[label] ?? true;
+  useEffect(() => {
+    setOpenGroups((current) => ({ ...current, [activeGroup]: true }));
+  }, [activeGroup]);
+
+  const isOpen = (label: string) => openGroups[label] ?? false;
+
+  const handleNavigate = () => {
+    onCloseMobile();
+  };
+
+  const onLogout = async () => {
+    await logoutApi();
+    const nextUrl = window.location.href;
+    window.location.href = getBuyerLoginUrl(nextUrl);
+  };
 
   const renderBadge = (indicatorKey: IndicatorKey | null) => {
     if (!indicatorKey) return null;
@@ -177,11 +197,20 @@ export default function PortalSidebar({
     );
   };
 
+  const renderImportantBadge = () => (
+    <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-orange-700 ring-1 ring-inset ring-orange-200">
+      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none">
+        <path d="M12 4l2.2 4.6 5.1.7-3.7 3.6.9 5.1-4.5-2.4-4.5 2.4.9-5.1-3.7-3.6 5.1-.7L12 4z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      </svg>
+      Important
+    </span>
+  );
+
   return (
     <aside
-      className={`h-screen sticky top-0 bg-white border-r border-gray-200 z-30 transition-all duration-200 ${
-        collapsed ? "w-[72px]" : "w-[240px] max-md:absolute max-md:left-0 max-md:shadow-lg max-md:z-40"
-      }`}
+      className={`fixed inset-y-0 left-0 z-40 flex h-screen flex-col border-r border-gray-200 bg-white shadow-xl transition-all duration-200 lg:sticky lg:top-0 lg:z-30 lg:shadow-none ${
+        mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+      } w-[272px] ${collapsed ? "lg:w-[72px]" : "lg:w-[272px]"}`}
     >
       <div className="h-14 px-4 flex items-center justify-between border-b border-gray-200">
         <div className="flex items-center gap-2 overflow-hidden">
@@ -190,19 +219,31 @@ export default function PortalSidebar({
             <span className="text-sm font-semibold text-gray-800 whitespace-nowrap">Seller Centre</span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={onToggleCollapse}
-          className="text-gray-500 hover:text-gray-700 flex-shrink-0"
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          <svg className={`w-4 h-4 transition-transform ${collapsed ? "" : "rotate-180"}`} viewBox="0 0 24 24" fill="none">
-            <path d="M8 5l8 7-8 7" stroke="currentColor" strokeWidth="1.6" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onCloseMobile}
+            className="inline-flex h-8 w-8 items-center justify-center rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 lg:hidden"
+            title="Close menu"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
+              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="hidden text-gray-500 hover:text-gray-700 lg:inline-flex lg:h-8 lg:w-8 lg:items-center lg:justify-center"
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <svg className={`h-4 w-4 transition-transform ${collapsed ? "" : "rotate-180"}`} viewBox="0 0 24 24" fill="none">
+              <path d="M8 5l8 7-8 7" stroke="currentColor" strokeWidth="1.6" />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      <div className="px-2 py-4 space-y-2 overflow-y-auto h-[calc(100vh-56px)]">
+      <div className="flex-1 space-y-2 overflow-y-auto px-2 py-4">
         {portalNav.map((group) => {
           const open = isOpen(group.label);
           const indicatorKey = groupIndicatorKey(group.label);
@@ -214,19 +255,25 @@ export default function PortalSidebar({
               <Link
                 key={group.label}
                 href={firstHref}
+                onClick={handleNavigate}
                 className={`flex items-center justify-between gap-2 rounded px-2 py-2 text-sm ${
                   groupIsActive ? "bg-orange-50 text-orange-600" : "text-gray-700 hover:bg-gray-50"
                 }`}
                 title={collapsed ? group.label : undefined}
               >
-                <span className="flex items-center gap-2 min-w-0">
+                <span className="flex min-w-0 items-center gap-2">
                   <span className="relative text-gray-400">
                     {iconMap[group.icon]}
                     {collapsed && indicators.wholesale > 0 && (
                       <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-emerald-500" />
                     )}
                   </span>
-                  {!collapsed && <span className="truncate">{group.label}</span>}
+                  {!collapsed && (
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate">{group.label}</span>
+                      {group.important ? renderImportantBadge() : null}
+                    </span>
+                  )}
                 </span>
                 {!collapsed && renderBadge(indicatorKey)}
               </Link>
@@ -250,7 +297,12 @@ export default function PortalSidebar({
                       <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-orange-500" />
                     )}
                   </span>
-                  {!collapsed && <span className="truncate">{group.label}</span>}
+                  {!collapsed && (
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate">{group.label}</span>
+                      {group.important ? renderImportantBadge() : null}
+                    </span>
+                  )}
                 </span>
                 {!collapsed && (
                   <span className="ml-2 flex items-center gap-2">
@@ -270,6 +322,7 @@ export default function PortalSidebar({
                       <Link
                         key={item.href}
                         href={item.href}
+                        onClick={handleNavigate}
                         className={`flex items-center gap-2 text-sm py-1.5 px-2 rounded ${
                           active ? "text-orange-600 bg-orange-50" : "text-gray-600 hover:bg-gray-50"
                         }`}
@@ -285,6 +338,30 @@ export default function PortalSidebar({
             </div>
           );
         })}
+      </div>
+      <div className="border-t border-gray-200 p-2">
+        <button
+          type="button"
+          onClick={onLogout}
+          className={`flex w-full items-center gap-2 rounded px-2 py-2 text-sm text-red-600 hover:bg-red-50 ${
+            collapsed ? "justify-center" : "justify-between"
+          }`}
+          title="Log out"
+        >
+          <span className="flex items-center gap-2">
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
+              <path d="M10 5H6a2 2 0 00-2 2v10a2 2 0 002 2h4" stroke="currentColor" strokeWidth="1.6" />
+              <path d="M14 8l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M9 12h9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+            {!collapsed && <span>Log out</span>}
+          </span>
+          {!collapsed && (
+            <span className="text-[11px] uppercase tracking-[0.16em] text-red-400">
+              Secure exit
+            </span>
+          )}
+        </button>
       </div>
     </aside>
   );

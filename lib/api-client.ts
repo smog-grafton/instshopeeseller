@@ -16,8 +16,11 @@ export interface ApiUser {
   avatarUrl: string | null;
   role: string;
   countryId: number | null;
+  buyerPortalEnabled?: boolean;
+  canAccessBuyerPortal?: boolean;
   isSeller?: boolean;
   sellerStatus?: "pending" | "approved" | "rejected" | "suspended" | null;
+  prefersSellerPortal?: boolean;
 }
 
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -595,11 +598,21 @@ export interface SellerProduct {
   is_active: boolean;
   status?: "draft" | "pending" | "live" | "rejected" | "hidden";
   low_stock?: boolean;
+  low_stock_threshold?: number | null;
+  max_per_order?: number | null;
+  restock_lead_days?: number | null;
+  auto_hide_when_out_of_stock?: boolean;
+  allow_backorder?: boolean;
   appeal_status?: "pending" | "approved" | "rejected" | null;
   appeal_message?: string | null;
   thumbnail_url: string | null;
   created_at: string;
   catalog_link?: string | null;
+}
+
+export interface SellerProductSettings {
+  can_edit_products: boolean;
+  edit_lock_reason?: string | null;
 }
 
 export async function getSellerProducts(params?: { search?: string; status?: "active" | "inactive" | "draft" | "pending" | "live" | "rejected" | "hidden"; per_page?: number }) {
@@ -613,6 +626,10 @@ export async function getSellerProducts(params?: { search?: string; status?: "ac
 
 export async function getSellerProduct(id: number) {
   return apiFetch<{ success: boolean; product: any }>(`/seller/products/${id}`);
+}
+
+export async function getSellerProductSettings() {
+  return apiFetch<{ success: boolean; settings: SellerProductSettings }>("/seller/products/settings");
 }
 
 export async function updateSellerProduct(id: number, data: Record<string, any>) {
@@ -662,6 +679,10 @@ export async function getCatalogProducts(params?: {
   if (params?.listing_type) query.set("listing_type", params.listing_type);
   const q = query.toString();
   return apiFetch<{ success: boolean; products: { data: any[]; total?: number } }>(`/catalog-products${q ? `?${q}` : ""}`);
+}
+
+export async function getCatalogProduct(id: number) {
+  return apiFetch<{ success: boolean; product: any }>(`/catalog-products/${id}`);
 }
 
 export async function uploadProductImages(productId: number, files: File[], thumbnailIndex = -1) {

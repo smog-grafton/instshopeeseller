@@ -1,17 +1,157 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { addCatalogProductToShop, getCatalogProducts, getWallet } from "@/lib/api-client";
+import { useEffect, useMemo, useState } from "react";
+import {
+  addCatalogProductToShop,
+  getCatalogProduct,
+  getCatalogProducts,
+  getSellerProductSettings,
+  getWallet,
+  type SellerProductSettings,
+} from "@/lib/api-client";
+import { isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
+
+type CatalogImage = {
+  image_path: string;
+  image_path_webp?: string | null;
+  is_thumbnail?: boolean;
+};
+
+type CatalogSpecification = {
+  label: string;
+  value?: string | null;
+};
+
+type CatalogVariant = {
+  type: "color" | "size";
+  label: string;
+  sku?: string | null;
+  price?: number | string | null;
+  original_price?: number | string | null;
+  stock?: number | null;
+  image_path?: string | null;
+  is_active?: boolean;
+};
+
+function formatMoney(value: number | string | null | undefined) {
+  const amount = Number(value ?? 0);
+  if (!Number.isFinite(amount)) return "0.00";
+  return amount.toFixed(2);
+}
+
+function normalizeCatalogImages(product: any): CatalogImage[] {
+  const normalized: CatalogImage[] = [];
+  const seen = new Set<string>();
+
+  const pushImage = (path: string | null | undefined, isThumbnail = false, webp?: string | null) => {
+    const trimmed = String(path ?? "").trim();
+    if (!trimmed || seen.has(trimmed)) return;
+
+    seen.add(trimmed);
+    normalized.push({
+      image_path: trimmed,
+      image_path_webp: webp ?? null,
+      is_thumbnail: isThumbnail,
+    });
+  };
+
+  pushImage(product?.thumbnail_url, true);
+
+  if (Array.isArray(product?.images)) {
+    product.images.forEach((image: any, index: number) => {
+      if (typeof image === "string") {
+        pushImage(image, index === 0 && !product?.thumbnail_url);
+        return;
+      }
+
+      if (image && typeof image === "object") {
+        pushImage(
+          image.image_path ?? image.imagePath,
+          Boolean(image.is_thumbnail ?? image.isThumbnail ?? (!product?.thumbnail_url && index === 0)),
+          image.image_path_webp ?? image.imagePathWebp,
+        );
+      }
+    });
+  }
+
+  return normalized;
+}
+
+function normalizeCatalogSpecifications(specifications: any): CatalogSpecification[] {
+  if (Array.isArray(specifications)) {
+    return specifications
+      .map((specification) => {
+        if (!specification || typeof specification !== "object") return null;
+        const label = String(specification.label ?? specification.name ?? "").trim();
+        if (!label) return null;
+
+        return {
+          label,
+          value: specification.value != null ? String(specification.value) : null,
+        };
+      })
+      .filter(Boolean) as CatalogSpecification[];
+  }
+
+  if (specifications && typeof specifications === "object") {
+    return Object.entries(specifications)
+      .map(([label, value]) => ({
+        label,
+        value: value != null ? String(value) : null,
+      }))
+      .filter((specification) => specification.label.trim());
+  }
+
+  return [];
+}
+
+function normalizeCatalogVariants(variants: any): CatalogVariant[] {
+  if (!Array.isArray(variants)) return [];
+
+  return variants
+    .map((variant) => {
+      if (!variant || typeof variant !== "object") return null;
+      const type = variant.type === "size" ? "size" : "color";
+      const label = String(variant.label ?? "").trim();
+      if (!label) return null;
+
+      return {
+        type,
+        label,
+        sku: variant.sku ?? null,
+        price: variant.price ?? null,
+        original_price: variant.original_price ?? variant.originalPrice ?? null,
+        stock: variant.stock != null ? Number(variant.stock) : null,
+        image_path: variant.image_path ?? variant.imagePath ?? null,
+        is_active: variant.is_active ?? variant.isActive ?? true,
+      } satisfies CatalogVariant;
+    })
+    .filter(Boolean) as CatalogVariant[];
+}
+
+function resolveCatalogThumbnail(product: any): string | null {
+  const primaryPath = product?.thumbnail_url ?? normalizeCatalogImages(product)[0]?.image_path ?? null;
+  return resolveBackendAssetUrl(primaryPath);
+}
 
 export default function WholesaleCentrePage() {
-  const router = useRouter();
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogProducts, setCatalogProducts] = useState<any[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [currency, setCurrency] = useState("USD");
+  const [productSettings, setProductSettings] = useState<SellerProductSettings | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [listingProductId, setListingProductId] = useState<number | null>(null);
+
+  const canEditProducts = productSettings?.can_edit_products ?? true;
+  const editLockReason =
+    productSettings?.edit_lock_reason ?? "Products listed from the Wholesale Centre stay supplier-managed.";
 
   useEffect(() => {
     getWallet()
@@ -20,6 +160,10 @@ export default function WholesaleCentrePage() {
         setCurrency(res.wallet.currency || "USD");
       })
       .catch(() => {});
+
+    getSellerProductSettings()
+      .then((res) => setProductSettings(res.settings))
+      .catch(() => setProductSettings(null));
   }, []);
 
   const loadCatalog = async () => {
@@ -37,94 +181,517 @@ export default function WholesaleCentrePage() {
   };
 
   useEffect(() => {
-    loadCatalog();
+    void loadCatalog();
   }, []);
 
-  const onAdd = async (id: number, goEdit: boolean) => {
+  const openDetails = async (product: any) => {
+    setSelectedProductId(product.id);
+    setSelectedProduct(product);
+    setSelectedImage(resolveCatalogThumbnail(product));
+    setDetailLoading(true);
+
     try {
-      const res = await addCatalogProductToShop(id);
-      alert("Product listed in your shop (live).");
-      if (goEdit) router.push(`/portal/products/edit/${res.product.id}`);
-    } catch (e: any) {
-      alert(e.message || "Failed to add product");
+      const res = await getCatalogProduct(product.id);
+      setSelectedProduct(res.product);
+      setSelectedImage(resolveCatalogThumbnail(res.product));
+    } catch (error: any) {
+      alert(error?.message || "Unable to load full product details.");
+    } finally {
+      setDetailLoading(false);
     }
   };
 
+  const closeDetails = () => {
+    setSelectedProductId(null);
+    setSelectedProduct(null);
+    setSelectedImage(null);
+    setDetailLoading(false);
+  };
+
+  const onAdd = async (id: number) => {
+    setListingProductId(id);
+    try {
+      await addCatalogProductToShop(id);
+      alert(
+        canEditProducts
+          ? "Product listed in your shop. You can continue managing it from My Products."
+          : "Product listed in your shop. It will appear in My Products as a supplier-managed listing.",
+      );
+    } catch (error: any) {
+      alert(error?.message || "Failed to add product");
+    } finally {
+      setListingProductId(null);
+    }
+  };
+
+  const selectedImages = useMemo(() => normalizeCatalogImages(selectedProduct), [selectedProduct]);
+  const selectedSpecifications = useMemo(
+    () => normalizeCatalogSpecifications(selectedProduct?.specifications),
+    [selectedProduct],
+  );
+  const selectedVariants = useMemo(
+    () => normalizeCatalogVariants(selectedProduct?.variants).filter((variant) => variant.is_active !== false),
+    [selectedProduct],
+  );
+  const selectedColors = selectedVariants.filter((variant) => variant.type === "color");
+  const selectedSizes = selectedVariants.filter((variant) => variant.type === "size");
+  const selectedImageUrl =
+    selectedImage ?? resolveBackendAssetUrl(selectedImages[0]?.image_path) ?? resolveCatalogThumbnail(selectedProduct);
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-800">Wholesale Centre</h1>
-          <p className="text-sm text-gray-500">
-            List wholesale catalogue products without a wallet balance. Listings go live immediately.
-          </p>
-        </div>
-        <div className="text-sm text-gray-600">
-          Wallet: {currency} {walletBalance.toFixed(2)}
-        </div>
-      </div>
-
-      <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="text"
-            placeholder="Search wholesale products..."
-            value={catalogSearch}
-            onChange={(e) => setCatalogSearch(e.target.value)}
-            className="h-9 px-3 border border-gray-200 rounded text-sm w-full md:w-72"
-          />
-          <button onClick={loadCatalog} className="h-9 px-3 border border-gray-200 rounded text-sm hover:bg-gray-50">
-            Search
-          </button>
-          <Link href="/portal/products/add-new?tab=catalog" className="text-sm text-blue-600 hover:text-blue-700 ml-auto">
-            Standard catalog (add-new)
-          </Link>
+    <>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 rounded-full bg-orange-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-700 ring-1 ring-inset ring-orange-200">
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                <path d="M4 8.5h16v10.5H4z" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M7 8.5V5h10v3.5" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M8 13h3m2 0h3" stroke="currentColor" strokeWidth="1.6" />
+              </svg>
+              Supplier-managed catalogue
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-800">Wholesale Centre</h1>
+              <p className="text-sm text-gray-500">
+                Browse ready-made supplier products, inspect the full detail stack, and list them in your shop without
+                editing each field one by one.
+              </p>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">Wallet</div>
+            <div className="mt-1 text-lg font-semibold text-gray-900">
+              {currency} {walletBalance.toFixed(2)}
+            </div>
+          </div>
         </div>
 
-        {catalogLoading ? (
-          <div className="text-sm text-gray-500">Loading…</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {catalogProducts.map((p) => (
-              <div key={p.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="font-medium text-gray-800">{p.title}</div>
-                <div className="text-xs text-gray-500 mt-1">{p.category_slug}</div>
-                <div className="text-sm text-gray-700 mt-2 space-y-0.5">
-                  <div>
-                    Selling: {currency} {Number(p.base_price).toFixed(2)}
-                  </div>
-                  {p.wholesale_price != null && (
-                    <div className="text-xs text-gray-600">
-                      Supplier: {currency} {Number(p.wholesale_price).toFixed(2)}
-                    </div>
-                  )}
-                  {Number(p.shipping_fee) > 0 && (
-                    <div className="text-xs text-gray-600">Shipping (catalog): {currency} {Number(p.shipping_fee).toFixed(2)}</div>
-                  )}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">Stock: {p.available_stock}</div>
-                <div className="mt-3 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onAdd(p.id, false)}
-                    className="h-9 px-3 bg-orange-600 text-white text-sm rounded hover:bg-orange-700"
-                  >
-                    Confirm listing
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onAdd(p.id, true)}
-                    className="h-9 px-3 border border-gray-200 text-sm rounded hover:bg-gray-50"
-                  >
-                    List &amp; edit
-                  </button>
-                </div>
-              </div>
-            ))}
-            {catalogProducts.length === 0 && <div className="text-sm text-gray-500">No wholesale products found.</div>}
+        {!canEditProducts && (
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            {editLockReason}
           </div>
         )}
+
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <input
+              type="text"
+              placeholder="Search wholesale products..."
+              value={catalogSearch}
+              onChange={(e) => setCatalogSearch(e.target.value)}
+              className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm md:w-80"
+            />
+            <button
+              onClick={loadCatalog}
+              className="inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Search
+            </button>
+            <Link
+              href="/portal/products/add-new?tab=catalog"
+              className="text-sm font-medium text-blue-600 hover:text-blue-700 md:ml-auto"
+            >
+              Standard catalog
+            </Link>
+          </div>
+
+          {catalogLoading ? (
+            <div className="pt-5 text-sm text-gray-500">Loading wholesale products...</div>
+          ) : (
+            <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-2">
+              {catalogProducts.map((product) => {
+                const previewImage = resolveCatalogThumbnail(product);
+
+                return (
+                  <div
+                    key={product.id}
+                    className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => openDetails(product)}
+                      className="flex w-full items-start gap-4 p-4 text-left"
+                    >
+                      <div className="relative h-28 w-28 flex-shrink-0 overflow-hidden rounded-2xl bg-gray-100">
+                        {previewImage ? (
+                          <Image
+                            src={previewImage}
+                            alt={product.title}
+                            fill
+                            className="object-cover"
+                            unoptimized={isBackendImage(previewImage)}
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center px-3 text-center text-xs text-gray-400">
+                            No image
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-600">
+                            {product.category_slug || "General"}
+                          </span>
+                          {product.promotion_label && (
+                            <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-medium text-orange-700">
+                              {product.promotion_label}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-2 line-clamp-2 text-base font-semibold text-gray-900">{product.title}</div>
+                        <div className="mt-3 flex flex-wrap gap-4 text-sm text-gray-600">
+                          <div>
+                            <div className="text-[11px] uppercase tracking-[0.16em] text-gray-400">Shop price</div>
+                            <div className="font-semibold text-gray-900">
+                              {currency} {formatMoney(product.base_price)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[11px] uppercase tracking-[0.16em] text-gray-400">Supplier cost</div>
+                            <div className="font-semibold text-gray-900">
+                              {currency} {formatMoney(product.wholesale_price)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[11px] uppercase tracking-[0.16em] text-gray-400">Stock</div>
+                            <div className="font-semibold text-gray-900">{product.available_stock ?? 0}</div>
+                          </div>
+                        </div>
+                        <div className="mt-3 line-clamp-2 text-sm text-gray-500">
+                          {product.description || "Open details to review images, specifications, and variant coverage."}
+                        </div>
+                      </div>
+                    </button>
+
+                    <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => onAdd(product.id)}
+                        disabled={listingProductId === product.id}
+                        className="inline-flex h-10 items-center justify-center rounded-xl bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-50"
+                      >
+                        {listingProductId === product.id ? "Listing..." : "Confirm listing"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openDetails(product)}
+                        className="inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        View details
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {catalogProducts.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-500">
+                  No wholesale products found.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      {selectedProductId !== null && (
+        <>
+          <button
+            type="button"
+            onClick={closeDetails}
+            aria-label="Close product details"
+            className="fixed inset-0 z-40 bg-slate-900/35"
+          />
+          <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l border-gray-200 bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4">
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-600">
+                  Wholesale Centre detail
+                </div>
+                <h2 className="mt-1 line-clamp-2 text-lg font-semibold text-gray-900">
+                  {selectedProduct?.title || "Product details"}
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Review the supplier content that will power the live listing in your shop.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeDetails}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+              {detailLoading && (
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500">
+                  Loading full product details...
+                </div>
+              )}
+
+              {!canEditProducts && (
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                  {editLockReason}
+                </div>
+              )}
+
+              <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+                <div className="space-y-3">
+                  <div className="relative aspect-square overflow-hidden rounded-3xl bg-gray-100">
+                    {selectedImageUrl ? (
+                      <Image
+                        src={selectedImageUrl}
+                        alt={selectedProduct?.title || "Product image"}
+                        fill
+                        className="object-cover"
+                        unoptimized={isBackendImage(selectedImageUrl)}
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-4 text-center text-sm text-gray-400">
+                        No product image available
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedImages.length > 1 && (
+                    <div className="grid grid-cols-5 gap-2">
+                      {selectedImages.slice(0, 10).map((image, index) => {
+                        const imageUrl = resolveBackendAssetUrl(image.image_path);
+                        const active = imageUrl === selectedImageUrl;
+
+                        return (
+                          <button
+                            key={`${image.image_path}-${index}`}
+                            type="button"
+                            onClick={() => setSelectedImage(imageUrl)}
+                            className={`relative aspect-square overflow-hidden rounded-2xl border ${
+                              active ? "border-orange-500 ring-2 ring-orange-100" : "border-gray-200"
+                            }`}
+                          >
+                            {imageUrl ? (
+                              <Image
+                                src={imageUrl}
+                                alt={`Gallery ${index + 1}`}
+                                fill
+                                className="object-cover"
+                                unoptimized={isBackendImage(imageUrl)}
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center text-[11px] text-gray-400">
+                                Empty
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3 rounded-3xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">
+                    Listing metrics
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Shop price</div>
+                    <div className="text-xl font-semibold text-gray-900">
+                      {currency} {formatMoney(selectedProduct?.base_price)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Supplier cost</div>
+                    <div className="text-sm font-semibold text-gray-900">
+                      {currency} {formatMoney(selectedProduct?.wholesale_price)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Shipping fee</div>
+                    <div className="text-sm font-semibold text-gray-900">
+                      {currency} {formatMoney(selectedProduct?.shipping_fee)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Available stock</div>
+                    <div className="text-sm font-semibold text-gray-900">{selectedProduct?.available_stock ?? 0}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Minimum order</div>
+                    <div className="text-sm font-semibold text-gray-900">{selectedProduct?.min_order_quantity ?? 1}</div>
+                  </div>
+                  {selectedProduct?.location && (
+                    <div>
+                      <div className="text-xs text-gray-500">Ships from</div>
+                      <div className="text-sm font-semibold text-gray-900">{selectedProduct.location}</div>
+                    </div>
+                  )}
+                  {selectedProduct?.rating != null && (
+                    <div>
+                      <div className="text-xs text-gray-500">Rating</div>
+                      <div className="text-sm font-semibold text-gray-900">{Number(selectedProduct.rating).toFixed(1)} / 5</div>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <section className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                    {selectedProduct?.category_slug || "General"}
+                  </span>
+                  {selectedProduct?.promotion_label && (
+                    <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700">
+                      {selectedProduct.promotion_label}
+                    </span>
+                  )}
+                  {Array.isArray(selectedProduct?.text_badges) &&
+                    selectedProduct.text_badges.map((badge: string) => (
+                      <span
+                        key={badge}
+                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600"
+                      >
+                        {badge}
+                      </span>
+                    ))}
+                </div>
+                <p className="text-sm leading-6 text-gray-600">
+                  {selectedProduct?.description || "No description added yet."}
+                </p>
+              </section>
+
+              <section className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">Shipping text</div>
+                  <div className="mt-2 text-sm font-medium text-gray-900">
+                    {selectedProduct?.shipping_text || "Shipping details available at checkout"}
+                  </div>
+                  {selectedProduct?.shipping_subtext && (
+                    <div className="mt-1 text-xs text-gray-500">{selectedProduct.shipping_subtext}</div>
+                  )}
+                </div>
+                <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">Guarantee</div>
+                  <div className="mt-2 text-sm text-gray-700">
+                    {selectedProduct?.guarantee_text || "No guarantee notes added."}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">Channel</div>
+                  <div className="mt-2 text-sm font-medium text-gray-900">
+                    {selectedProduct?.listing_type === "wholesale_centre" ? "Wholesale Centre" : "Catalog"}
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500">Supplier-managed content ready for quick listing.</div>
+                </div>
+              </section>
+
+              {selectedVariants.length > 0 && (
+                <section className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Variants</h3>
+                    <p className="mt-1 text-xs text-gray-500">
+                      These option groups feed the buyer product detail page directly.
+                    </p>
+                  </div>
+                  {selectedColors.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">Colors</div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedColors.map((variant, index) => {
+                          const variantImageUrl = variant.image_path
+                            ? resolveBackendAssetUrl(variant.image_path)
+                            : null;
+
+                          return (
+                            <div
+                              key={`${variant.label}-${index}`}
+                              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
+                            >
+                              {variantImageUrl ? (
+                                <span className="relative h-6 w-6 overflow-hidden rounded-full border border-gray-200">
+                                  <Image
+                                    src={variantImageUrl}
+                                    alt={variant.label}
+                                    fill
+                                    className="object-cover"
+                                    unoptimized={isBackendImage(variantImageUrl)}
+                                  />
+                                </span>
+                              ) : (
+                                <span className="h-2.5 w-2.5 rounded-full bg-orange-500" />
+                              )}
+                              {variant.label}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {selectedSizes.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">Sizes</div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedSizes.map((variant, index) => (
+                          <span
+                            key={`${variant.label}-${index}`}
+                            className="inline-flex rounded-full border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
+                          >
+                            {variant.label}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {selectedSpecifications.length > 0 && (
+                <section className="space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Specifications</h3>
+                    <p className="mt-1 text-xs text-gray-500">Everything the buyer detail page needs should already be here.</p>
+                  </div>
+                  <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                    {selectedSpecifications.map((specification, index) => (
+                      <div
+                        key={`${specification.label}-${index}`}
+                        className={`grid gap-2 px-4 py-3 md:grid-cols-[180px_minmax(0,1fr)] ${
+                          index === 0 ? "" : "border-t border-gray-100"
+                        }`}
+                      >
+                        <div className="text-sm font-medium text-gray-500">{specification.label}</div>
+                        <div className="text-sm text-gray-800">{specification.value || "Not specified"}</div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+
+            <div className="border-t border-gray-200 px-5 py-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => void onAdd(selectedProductId)}
+                  disabled={listingProductId === selectedProductId}
+                  className="inline-flex h-11 items-center justify-center rounded-xl bg-orange-600 px-5 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {listingProductId === selectedProductId ? "Listing..." : "Confirm listing"}
+                </button>
+                <Link
+                  href="/portal/products/my-products"
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-gray-200 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  My Products
+                </Link>
+              </div>
+            </div>
+          </aside>
+        </>
+      )}
+    </>
   );
 }

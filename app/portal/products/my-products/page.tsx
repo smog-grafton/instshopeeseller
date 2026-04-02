@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { getSellerProducts, getWallet, submitProductForReview, type SellerProduct } from "@/lib/api-client";
+import {
+  getSellerProducts,
+  getSellerProductSettings,
+  getWallet,
+  submitProductForReview,
+  type SellerProduct,
+  type SellerProductSettings,
+} from "@/lib/api-client";
 import { isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
 import Image from "next/image";
 
@@ -13,17 +20,20 @@ export default function MyProductsPage() {
   const [status, setStatus] = useState<"all" | "active" | "inactive" | "draft" | "pending" | "live" | "rejected" | "hidden">("all");
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [currency, setCurrency] = useState<string>("USD");
+  const [productSettings, setProductSettings] = useState<SellerProductSettings | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [productsRes, walletRes] = await Promise.all([
+      const [productsRes, walletRes, settingsRes] = await Promise.all([
         getSellerProducts({ search: search || undefined, status: status === "all" ? undefined : status }),
         getWallet(),
+        getSellerProductSettings().catch(() => null),
       ]);
       setProducts(productsRes.products.data);
       setWalletBalance(parseFloat(walletRes.wallet.balance));
       setCurrency(walletRes.wallet.currency || "USD");
+      setProductSettings(settingsRes?.settings ?? null);
     } catch {
       setProducts([]);
     } finally {
@@ -36,6 +46,7 @@ export default function MyProductsPage() {
   }, [status]);
 
   const hasFunds = (walletBalance ?? 0) > 0;
+  const canEditProducts = productSettings?.can_edit_products ?? true;
   const filteredProducts = useMemo(() => {
     if (!search.trim()) return products;
     return products.filter((p) => p.title.toLowerCase().includes(search.toLowerCase()));
@@ -75,6 +86,12 @@ export default function MyProductsPage() {
             Top up now
           </Link>
           .
+        </div>
+      )}
+
+      {!canEditProducts && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+          {productSettings?.edit_lock_reason || "Product editing is currently disabled by the platform. You can still preview supplier-managed listings here."}
         </div>
       )}
 
@@ -153,7 +170,12 @@ export default function MyProductsPage() {
                   <div className="text-sm text-gray-700 w-24 text-right">{currency} {Number(product.price).toFixed(2)}</div>
                   <div className="text-sm text-gray-500 w-28 text-right">ID #{product.id}</div>
                   <div className="flex items-center gap-2 text-sm">
-                    <Link href={`/portal/products/edit/${product.id}`} className="text-blue-600 hover:text-blue-700">Edit</Link>
+                    <Link
+                      href={canEditProducts ? `/portal/products/edit/${product.id}` : `/portal/products/preview/${product.id}`}
+                      className="text-blue-600 hover:text-blue-700"
+                    >
+                      {canEditProducts ? "Edit" : "View"}
+                    </Link>
                     <Link href={`/portal/products/preview/${product.id}`} className="text-gray-600 hover:text-gray-800">Preview</Link>
                     <Link href={`/portal/products/inventory-rules?product=${product.id}`} className="text-gray-600 hover:text-gray-800">Inventory</Link>
                     {(product.status === "draft" || product.status === "hidden") && (

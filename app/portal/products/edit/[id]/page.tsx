@@ -8,6 +8,7 @@ import {
   deleteProductImage,
   getCategories,
   getSellerProduct,
+  getSellerProductSettings,
   reorderProductImages,
   setProductThumbnail,
   submitProductAppeal,
@@ -16,6 +17,7 @@ import {
   updateSellerProduct,
   uploadProductImages,
   uploadVariantImage,
+  type SellerProductSettings,
 } from "@/lib/api-client";
 import { isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
 
@@ -83,6 +85,7 @@ export default function EditProductPage() {
   const [images, setImages] = useState<any[]>([]);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [appealMessage, setAppealMessage] = useState("");
+  const [productSettings, setProductSettings] = useState<SellerProductSettings | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -158,10 +161,12 @@ export default function EditProductPage() {
     Promise.all([
       getSellerProduct(id),
       getCategories().catch(() => ({ categories: [] })),
+      getSellerProductSettings().catch(() => null),
     ])
-      .then(([productRes, categoriesRes]) => {
+      .then(([productRes, categoriesRes, settingsRes]) => {
         hydrateProduct(productRes.product);
         setCategories(categoriesRes.categories || []);
+        setProductSettings(settingsRes?.settings ?? null);
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -186,6 +191,7 @@ export default function EditProductPage() {
   const isWholesaleLinked = catalogProduct?.listing_type === "wholesale_centre";
   const isPriceLocked = Boolean(isCatalogLinked && isWholesaleLinked);
   const isAdminManagedStatus = status === "pending" || status === "rejected" || status === "hidden";
+  const canEditProducts = productSettings?.can_edit_products ?? true;
 
   const categoryOptions = useMemo(() => {
     const optionMap = new Map<string, { label: string; value: string }>();
@@ -403,6 +409,143 @@ export default function EditProductPage() {
 
   if (!product) {
     return <div className="text-sm text-gray-500">Product not found.</div>;
+  }
+
+  if (!canEditProducts) {
+    const previewImage = resolveImage(product.thumbnail_url);
+
+    return (
+      <div className="space-y-6">
+        <div className="rounded-sm border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          {productSettings?.edit_lock_reason || "Product editing is currently disabled by the platform."}
+        </div>
+
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.18em] text-gray-500">
+              <span>{isCatalogLinked ? "Catalog-linked product" : "Shop-managed product"}</span>
+              {catalogProduct?.listing_type && (
+                <span className="border border-gray-200 px-2 py-1 text-[11px] tracking-[0.16em] text-gray-700">
+                  {catalogProduct.listing_type === "wholesale_centre" ? "Wholesale Centre" : "Supplier Catalog"}
+                </span>
+              )}
+              {isPriceLocked && (
+                <span className="border border-orange-200 bg-orange-50 px-2 py-1 text-[11px] tracking-[0.16em] text-orange-700">
+                  Supplier pricing locked
+                </span>
+              )}
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">Product View Only</h1>
+              <p className="max-w-3xl text-sm text-gray-500">
+                This listing can still be reviewed in full, but changes are locked until platform admin enables seller
+                product editing again.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={`/portal/products/preview/${id}`}
+              className="inline-flex h-10 items-center rounded-sm border border-gray-200 px-3 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              Open Preview
+            </Link>
+            {product?.slug && (
+              <Link
+                href={`${process.env.NEXT_PUBLIC_BUYER_URL ?? ""}/product/${product.slug}`}
+                target="_blank"
+                className="inline-flex h-10 items-center rounded-sm border border-gray-200 px-3 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Open Buyer Page
+              </Link>
+            )}
+            <Link
+              href="/portal/products/my-products"
+              className="inline-flex h-10 items-center rounded-sm bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700"
+            >
+              Back to My Products
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <div className="overflow-hidden rounded-sm border border-gray-200 bg-white">
+            <div className="relative aspect-square bg-gray-50">
+              {previewImage ? (
+                <Image
+                  src={previewImage}
+                  alt={product.title || "Product"}
+                  fill
+                  className="object-cover"
+                  unoptimized={isBackendImage(previewImage)}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-gray-400">No image</div>
+              )}
+            </div>
+            <div className="space-y-2 p-4 text-sm">
+              <div>
+                <div className="text-xs uppercase tracking-[0.16em] text-gray-400">Status</div>
+                <div className="mt-1 font-medium text-gray-900">{product.status || "draft"}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-[0.16em] text-gray-400">Price</div>
+                <div className="mt-1 font-medium text-gray-900">{formatMoney(product.price)}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-[0.16em] text-gray-400">Stock</div>
+                <div className="mt-1 font-medium text-gray-900">{product.stock ?? 0}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <section className="rounded-sm border border-gray-200 bg-white p-5">
+              <div className="text-xs uppercase tracking-[0.16em] text-gray-400">Product title</div>
+              <h2 className="mt-2 text-xl font-semibold text-gray-900">{product.title}</h2>
+              <p className="mt-3 text-sm leading-6 text-gray-600">{product.description || "No description added."}</p>
+            </section>
+
+            <section className="rounded-sm border border-gray-200 bg-white p-5">
+              <div className="text-sm font-semibold text-gray-900">Shipping and guarantee</div>
+              <div className="mt-4 grid gap-4 md:grid-cols-3">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-gray-400">Shipping text</div>
+                  <div className="mt-1 text-sm text-gray-800">{product.shipping_text || "Not specified"}</div>
+                </div>
+                <div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-gray-400">Shipping subtext</div>
+                  <div className="mt-1 text-sm text-gray-800">{product.shipping_subtext || "Not specified"}</div>
+                </div>
+                <div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-gray-400">Guarantee</div>
+                  <div className="mt-1 text-sm text-gray-800">{product.guarantee_text || "Not specified"}</div>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-sm border border-gray-200 bg-white p-5">
+              <div className="text-sm font-semibold text-gray-900">Catalog coverage</div>
+              <div className="mt-4 grid gap-4 md:grid-cols-3">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-gray-400">Images</div>
+                  <div className="mt-1 text-sm text-gray-800">{images.length}</div>
+                </div>
+                <div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-gray-400">Variants</div>
+                  <div className="mt-1 text-sm text-gray-800">{variants.length}</div>
+                </div>
+                <div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-gray-400">Specifications</div>
+                  <div className="mt-1 text-sm text-gray-800">{specifications.filter((spec) => spec.label.trim()).length}</div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
