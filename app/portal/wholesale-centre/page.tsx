@@ -35,10 +35,33 @@ type CatalogVariant = {
   is_active?: boolean;
 };
 
+type PriceRangeOption = {
+  id: string;
+  label: string;
+  min?: number;
+  max?: number;
+};
+
+const PRICE_RANGE_OPTIONS: PriceRangeOption[] = [
+  { id: "all", label: "All" },
+  { id: "1-500", label: "1 - 500", min: 1, max: 500 },
+  { id: "501-1000", label: "501 - 1,000", min: 501, max: 1000 },
+  { id: "1001-3000", label: "1,001 - 3,000", min: 1001, max: 3000 },
+  { id: "3001-6000", label: "3,001 - 6,000", min: 3001, max: 6000 },
+  { id: "6001-9000", label: "6,001 - 9,000", min: 6001, max: 9000 },
+  { id: "9000+", label: "More than 9,000", min: 9001 },
+];
+
 function formatMoney(value: number | string | null | undefined) {
   const amount = Number(value ?? 0);
   if (!Number.isFinite(amount)) return "0.00";
   return amount.toFixed(2);
+}
+
+function formatCategoryLabel(value: string) {
+  return value
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function normalizeCatalogImages(product: any): CatalogImage[] {
@@ -145,7 +168,13 @@ function isProductDistributed(
 export default function WholesaleCentrePage() {
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogProducts, setCatalogProducts] = useState<any[]>([]);
+  const [catalogCategories, setCatalogCategories] = useState<string[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogPage, setCatalogPage] = useState(1);
+  const [catalogLastPage, setCatalogLastPage] = useState(1);
+  const [catalogTotal, setCatalogTotal] = useState(0);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedPriceRangeId, setSelectedPriceRangeId] = useState("all");
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [currency, setCurrency] = useState("USD");
   const [productSettings, setProductSettings] = useState<SellerProductSettings | null>(null);
@@ -156,8 +185,6 @@ export default function WholesaleCentrePage() {
   const [listingProductId, setListingProductId] = useState<number | null>(null);
 
   const canEditProducts = productSettings?.can_edit_products ?? true;
-  const editLockReason =
-    productSettings?.edit_lock_reason ?? "Products listed from the Wholesale Centre stay supplier-managed.";
 
   useEffect(() => {
     getWallet()
@@ -172,23 +199,99 @@ export default function WholesaleCentrePage() {
       .catch(() => setProductSettings(null));
   }, []);
 
-  const loadCatalog = async () => {
+  const categoryFilters = useMemo(
+    () => ["all", ...catalogCategories.filter((category, index) => catalogCategories.indexOf(category) === index)],
+    [catalogCategories],
+  );
+  const visibleCatalogPages = useMemo(() => {
+    if (catalogLastPage <= 1) return [];
+
+    const windowSize = 5;
+    const start = Math.max(1, catalogPage - Math.floor(windowSize / 2));
+    const end = Math.min(catalogLastPage, start + windowSize - 1);
+    const adjustedStart = Math.max(1, end - windowSize + 1);
+
+    return Array.from({ length: end - adjustedStart + 1 }, (_, index) => adjustedStart + index);
+  }, [catalogLastPage, catalogPage]);
+
+  const loadCatalog = async (options?: {
+    page?: number;
+    search?: string;
+    category?: string;
+    priceRangeId?: string;
+  }) => {
+    const nextPage = options?.page ?? catalogPage;
+    const nextSearch = options?.search ?? catalogSearch;
+    const nextCategory = options?.category ?? selectedCategory;
+    const nextPriceRangeId = options?.priceRangeId ?? selectedPriceRangeId;
+    const selectedPriceRange = PRICE_RANGE_OPTIONS.find((option) => option.id === nextPriceRangeId) ?? PRICE_RANGE_OPTIONS[0];
+
     setCatalogLoading(true);
     try {
       const res = await getCatalogProducts({
-        search: catalogSearch || undefined,
+        search: nextSearch.trim() || undefined,
+        category: nextCategory !== "all" ? nextCategory : undefined,
+        min_price: selectedPriceRange.min,
+        max_price: selectedPriceRange.max,
+        page: nextPage,
         per_page: 24,
         listing_type: "wholesale_centre",
       });
+
       setCatalogProducts(res.products.data);
+      setCatalogCategories(
+        res.filters?.categories?.length
+          ? res.filters.categories
+          : Array.from(
+              new Set(
+                res.products.data
+                  .map((product) => String(product.category_slug ?? "").trim())
+                  .filter(Boolean),
+              ),
+            ),
+      );
+      setCatalogPage(Number(res.products.current_page ?? nextPage));
+      setCatalogLastPage(Math.max(1, Number(res.products.last_page ?? 1)));
+      setCatalogTotal(Number(res.products.total ?? res.products.data.length));
+    } catch (error: any) {
+      setCatalogProducts([]);
+      setCatalogLastPage(1);
+      setCatalogTotal(0);
+      alert(error?.message || "Failed to load wholesale products.");
     } finally {
       setCatalogLoading(false);
     }
   };
 
   useEffect(() => {
-    void loadCatalog();
+    void loadCatalog({ page: 1 });
   }, []);
+
+  const handleSearch = () => {
+    setCatalogPage(1);
+    void loadCatalog({ page: 1 });
+  };
+
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    setCatalogPage(1);
+    void loadCatalog({ page: 1, category });
+  };
+
+  const handlePriceRangeChange = (priceRangeId: string) => {
+    setSelectedPriceRangeId(priceRangeId);
+    setCatalogPage(1);
+    void loadCatalog({ page: 1, priceRangeId });
+  };
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > catalogLastPage || page === catalogPage) {
+      return;
+    }
+
+    setCatalogPage(page);
+    void loadCatalog({ page });
+  };
 
   const openDetails = async (product: any) => {
     setSelectedProductId(product.id);
@@ -300,12 +403,6 @@ export default function WholesaleCentrePage() {
           </div>
         </div>
 
-        {!canEditProducts && (
-          <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-            {editLockReason}
-          </div>
-        )}
-
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <input
@@ -313,10 +410,16 @@ export default function WholesaleCentrePage() {
               placeholder="Search wholesale products..."
               value={catalogSearch}
               onChange={(e) => setCatalogSearch(e.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  handleSearch();
+                }
+              }}
               className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm md:w-80"
             />
             <button
-              onClick={loadCatalog}
+              onClick={handleSearch}
               className="inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Search
@@ -327,6 +430,58 @@ export default function WholesaleCentrePage() {
             >
               Standard catalog
             </Link>
+          </div>
+
+          <div className="mt-5 space-y-4 border-t border-gray-100 pt-4">
+            <div className="space-y-2">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">Classification</div>
+              <div className="overflow-x-auto">
+                <div className="flex min-w-max gap-2 pb-1">
+                  {categoryFilters.map((category) => {
+                    const active = selectedCategory === category;
+
+                    return (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() => handleCategoryChange(category)}
+                        className={`inline-flex h-9 items-center justify-center border px-3 text-xs font-semibold uppercase tracking-[0.08em] transition ${
+                          active
+                            ? "border-orange-600 bg-orange-600 text-white"
+                            : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {category === "all" ? "All" : formatCategoryLabel(category)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">Price range</div>
+              <div className="flex flex-wrap gap-2">
+                {PRICE_RANGE_OPTIONS.map((range) => {
+                  const active = selectedPriceRangeId === range.id;
+
+                  return (
+                    <button
+                      key={range.id}
+                      type="button"
+                      onClick={() => handlePriceRangeChange(range.id)}
+                      className={`inline-flex h-9 items-center justify-center border px-3 text-xs font-semibold uppercase tracking-[0.08em] transition ${
+                        active
+                          ? "border-orange-600 bg-orange-600 text-white"
+                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      {range.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {catalogLoading ? (
@@ -408,6 +563,49 @@ export default function WholesaleCentrePage() {
               )}
             </div>
           )}
+
+          {!catalogLoading && catalogLastPage > 1 && (
+            <div className="mt-6 flex flex-col gap-3 border-t border-gray-100 pt-4 md:flex-row md:items-center md:justify-between">
+              <div className="text-sm text-gray-500">
+                Page {catalogPage} of {catalogLastPage} · {catalogTotal} products
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(catalogPage - 1)}
+                  disabled={catalogPage <= 1}
+                  className="inline-flex h-9 items-center justify-center border border-gray-200 px-3 text-xs font-semibold uppercase tracking-[0.08em] text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Prev
+                </button>
+
+                {visibleCatalogPages.map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => handlePageChange(page)}
+                    className={`inline-flex h-9 min-w-[2.25rem] items-center justify-center border px-3 text-xs font-semibold uppercase tracking-[0.08em] transition ${
+                      page === catalogPage
+                        ? "border-orange-600 bg-orange-600 text-white"
+                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(catalogPage + 1)}
+                  disabled={catalogPage >= catalogLastPage}
+                  className="inline-flex h-9 items-center justify-center border border-gray-200 px-3 text-xs font-semibold uppercase tracking-[0.08em] text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -447,12 +645,6 @@ export default function WholesaleCentrePage() {
               {detailLoading && (
                 <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500">
                   Loading full product details...
-                </div>
-              )}
-
-              {!canEditProducts && (
-                <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-                  {editLockReason}
                 </div>
               )}
 

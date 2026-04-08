@@ -668,6 +668,9 @@ export async function createSellerProduct(formData: FormData) {
 export async function getCatalogProducts(params?: {
   search?: string;
   category?: string;
+  min_price?: number;
+  max_price?: number;
+  page?: number;
   per_page?: number;
   /** `standard` (default catalog) or `wholesale_centre` */
   listing_type?: string;
@@ -675,10 +678,25 @@ export async function getCatalogProducts(params?: {
   const query = new URLSearchParams();
   if (params?.search) query.set("search", params.search);
   if (params?.category) query.set("category", params.category);
+  if (typeof params?.min_price === "number") query.set("min_price", String(params.min_price));
+  if (typeof params?.max_price === "number") query.set("max_price", String(params.max_price));
+  if (params?.page) query.set("page", String(params.page));
   if (params?.per_page) query.set("per_page", String(params.per_page));
   if (params?.listing_type) query.set("listing_type", params.listing_type);
   const q = query.toString();
-  return apiFetch<{ success: boolean; products: { data: any[]; total?: number } }>(`/catalog-products${q ? `?${q}` : ""}`);
+  return apiFetch<{
+    success: boolean;
+    products: {
+      data: any[];
+      total?: number;
+      current_page?: number;
+      last_page?: number;
+      per_page?: number;
+    };
+    filters?: {
+      categories?: string[];
+    };
+  }>(`/catalog-products${q ? `?${q}` : ""}`);
 }
 
 export async function getCatalogProduct(id: number) {
