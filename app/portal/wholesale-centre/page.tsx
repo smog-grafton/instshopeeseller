@@ -136,6 +136,12 @@ function resolveCatalogThumbnail(product: any): string | null {
   return resolveBackendAssetUrl(primaryPath);
 }
 
+function isProductDistributed(
+  product: { already_distributed?: unknown; distributed_product_id?: unknown } | null | undefined,
+): boolean {
+  return Boolean(product?.already_distributed || product?.distributed_product_id);
+}
+
 export default function WholesaleCentrePage() {
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogProducts, setCatalogProducts] = useState<any[]>([]);
@@ -211,11 +217,37 @@ export default function WholesaleCentrePage() {
   const onAdd = async (id: number) => {
     setListingProductId(id);
     try {
-      await addCatalogProductToShop(id);
+      const res = await addCatalogProductToShop(id);
+      const distributedProductId = res.product?.id ?? null;
+
+      setCatalogProducts((currentProducts) =>
+        currentProducts.map((product) =>
+          product.id === id
+            ? {
+                ...product,
+                already_distributed: true,
+                distributed_product_id: distributedProductId,
+                distributed_at: product.distributed_at ?? new Date().toISOString(),
+              }
+            : product,
+        ),
+      );
+      setSelectedProduct((currentProduct: any) =>
+        currentProduct && currentProduct.id === id
+          ? {
+              ...currentProduct,
+              already_distributed: true,
+              distributed_product_id: distributedProductId,
+              distributed_at: currentProduct.distributed_at ?? new Date().toISOString(),
+            }
+          : currentProduct,
+      );
+
       alert(
-        canEditProducts
-          ? "Product listed in your shop. You can continue managing it from My Products."
-          : "Product listed in your shop. It will appear in My Products as a supplier-managed listing.",
+        res.message ||
+          (canEditProducts
+            ? "Product listed in your shop. You can continue managing it from My Products."
+            : "Product listed in your shop. It will appear in My Products as a supplier-managed listing."),
       );
     } catch (error: any) {
       alert(error?.message || "Failed to add product");
@@ -235,6 +267,7 @@ export default function WholesaleCentrePage() {
   );
   const selectedColors = selectedVariants.filter((variant) => variant.type === "color");
   const selectedSizes = selectedVariants.filter((variant) => variant.type === "size");
+  const selectedAlreadyDistributed = isProductDistributed(selectedProduct);
   const selectedImageUrl =
     selectedImage ?? resolveBackendAssetUrl(selectedImages[0]?.image_path) ?? resolveCatalogThumbnail(selectedProduct);
 
@@ -299,21 +332,18 @@ export default function WholesaleCentrePage() {
           {catalogLoading ? (
             <div className="pt-5 text-sm text-gray-500">Loading wholesale products...</div>
           ) : (
-            <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:[grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]">
               {catalogProducts.map((product) => {
                 const previewImage = resolveCatalogThumbnail(product);
+                const alreadyDistributed = isProductDistributed(product);
 
                 return (
-                  <div
+                  <article
                     key={product.id}
-                    className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    className="flex h-full flex-col overflow-hidden border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                   >
-                    <button
-                      type="button"
-                      onClick={() => openDetails(product)}
-                      className="flex w-full items-start gap-4 p-4 text-left"
-                    >
-                      <div className="relative h-28 w-28 flex-shrink-0 overflow-hidden rounded-2xl bg-gray-100">
+                    <button type="button" onClick={() => openDetails(product)} className="flex flex-1 flex-col text-left">
+                      <div className="relative aspect-[3/4] w-full overflow-hidden bg-gray-100">
                         {previewImage ? (
                           <Image
                             src={previewImage}
@@ -329,64 +359,50 @@ export default function WholesaleCentrePage() {
                         )}
                       </div>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-600">
+                      <div className="flex flex-1 flex-col gap-2.5 p-3">
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className="border border-gray-200 bg-gray-50 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-gray-600">
                             {product.category_slug || "General"}
                           </span>
                           {product.promotion_label && (
-                            <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-medium text-orange-700">
+                            <span className="border border-orange-200 bg-orange-50 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-orange-700">
                               {product.promotion_label}
                             </span>
                           )}
                         </div>
-                        <div className="mt-2 line-clamp-2 text-base font-semibold text-gray-900">{product.title}</div>
-                        <div className="mt-3 flex flex-wrap gap-4 text-sm text-gray-600">
-                          <div>
-                            <div className="text-[11px] uppercase tracking-[0.16em] text-gray-400">Shop price</div>
-                            <div className="font-semibold text-gray-900">
-                              {currency} {formatMoney(product.base_price)}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[11px] uppercase tracking-[0.16em] text-gray-400">Supplier cost</div>
-                            <div className="font-semibold text-gray-900">
-                              {currency} {formatMoney(product.wholesale_price)}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[11px] uppercase tracking-[0.16em] text-gray-400">Stock</div>
-                            <div className="font-semibold text-gray-900">{product.available_stock ?? 0}</div>
-                          </div>
+
+                        <div className="min-h-[2.5rem] line-clamp-2 text-sm font-semibold leading-5 text-gray-900">
+                          {product.title}
                         </div>
-                        <div className="mt-3 line-clamp-2 text-sm text-gray-500">
-                          {product.description || "Open details to review images, specifications, and variant coverage."}
+
+                        <div className="mt-auto">
+                          <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">Shop price</div>
+                          <div className="mt-1 text-sm font-semibold text-gray-900 sm:text-base">
+                            {currency} {formatMoney(product.base_price)}
+                          </div>
                         </div>
                       </div>
                     </button>
 
-                    <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 px-4 py-3">
+                    <div className="border-t border-gray-200 p-3">
                       <button
                         type="button"
-                        onClick={() => onAdd(product.id)}
-                        disabled={listingProductId === product.id}
-                        className="inline-flex h-10 items-center justify-center rounded-xl bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-50"
+                        onClick={() => void onAdd(product.id)}
+                        disabled={listingProductId === product.id || alreadyDistributed}
+                        className="inline-flex h-9 w-full items-center justify-center border border-orange-600 bg-orange-600 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:border-emerald-600 disabled:bg-emerald-600 disabled:opacity-100"
                       >
-                        {listingProductId === product.id ? "Listing..." : "Confirm listing"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openDetails(product)}
-                        className="inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                      >
-                        View details
+                        {listingProductId === product.id
+                          ? "Listing..."
+                          : alreadyDistributed
+                            ? "Already distributed"
+                            : "Confirm listing"}
                       </button>
                     </div>
-                  </div>
+                  </article>
                 );
               })}
               {catalogProducts.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-500">
+                <div className="col-span-full border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-500">
                   No wholesale products found.
                 </div>
               )}
@@ -548,6 +564,11 @@ export default function WholesaleCentrePage() {
                       {selectedProduct.promotion_label}
                     </span>
                   )}
+                  {selectedAlreadyDistributed && (
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                      Already distributed
+                    </span>
+                  )}
                   {Array.isArray(selectedProduct?.text_badges) &&
                     selectedProduct.text_badges.map((badge: string) => (
                       <span
@@ -676,10 +697,14 @@ export default function WholesaleCentrePage() {
                 <button
                   type="button"
                   onClick={() => void onAdd(selectedProductId)}
-                  disabled={listingProductId === selectedProductId}
-                  className="inline-flex h-11 items-center justify-center rounded-xl bg-orange-600 px-5 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-50"
+                  disabled={listingProductId === selectedProductId || selectedAlreadyDistributed}
+                  className="inline-flex h-11 items-center justify-center rounded-xl bg-orange-600 px-5 text-sm font-medium text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-emerald-600 disabled:opacity-100"
                 >
-                  {listingProductId === selectedProductId ? "Listing..." : "Confirm listing"}
+                  {listingProductId === selectedProductId
+                    ? "Listing..."
+                    : selectedAlreadyDistributed
+                      ? "Already distributed"
+                      : "Confirm listing"}
                 </button>
                 <Link
                   href="/portal/products/my-products"
