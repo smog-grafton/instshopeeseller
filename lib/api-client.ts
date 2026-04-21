@@ -39,10 +39,16 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
   if (!res.ok) {
     let message = "Request failed";
+    let errorData: any = null;
     try {
-      const errorData = (await res.json()) as any;
+      errorData = (await res.json()) as any;
       if (errorData && typeof errorData.message === "string") {
         message = errorData.message;
+      } else if (errorData?.errors && typeof errorData.errors === "object") {
+        const firstError = Object.values(errorData.errors).flat()[0];
+        if (typeof firstError === "string") {
+          message = firstError;
+        }
       }
     } catch {
       message = `Request failed with status ${res.status}`;
@@ -50,6 +56,9 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
     
     const error = new Error(message) as any;
     error.status = res.status;
+    if (errorData?.errors) {
+      error.errors = errorData.errors;
+    }
     throw error;
   }
 
@@ -439,13 +448,13 @@ export async function getSellerChatThreads() {
 
 export async function getSellerChatMessages(threadId: string, afterId?: number) {
   const query = afterId ? `?after_id=${afterId}` : "";
-  return apiFetch<{ success: boolean; messages: { id: string; text: string; sender_type: string; timestamp: string }[] }>(
+  return apiFetch<{ success: boolean; messages: { id: string; text: string; sender_type: string; sender_label?: string; timestamp: string }[] }>(
     `/seller/chat/threads/${threadId}/messages${query}`
   );
 }
 
 export async function sendSellerChatMessage(threadId: string, message: string) {
-  return apiFetch<{ success: boolean; message: { id: string; text: string; sender_type: string; timestamp: string } }>(
+  return apiFetch<{ success: boolean; message: { id: string; text: string; sender_type: string; sender_label?: string; timestamp: string } }>(
     `/seller/chat/threads/${threadId}/send`,
     {
       method: "POST",
@@ -513,7 +522,7 @@ export interface SaveOnboardingStep1Payload {
   shop_name: string;
   pickup_address_id?: number;
   phone?: string;
-  phone_verification_code?: string;
+  invitation_code?: string;
 }
 
 export async function saveOnboardingStep1(data: SaveOnboardingStep1Payload) {
@@ -569,9 +578,9 @@ export async function saveOnboardingStep3(formData: FormData) {
 }
 
 export interface SubmitOnboardingPayload {
-  bank_account_name: string;
-  bank_account_number: string;
-  bank_name: string;
+  bank_account_name?: string;
+  bank_account_number?: string;
+  bank_name?: string;
 }
 
 export async function submitOnboarding(data: SubmitOnboardingPayload) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { getApiBaseUrl, getSellerChatMessages, getSellerChatThreads, sendSellerChatMessage, sendSellerChatTyping } from "@/lib/api-client";
 
@@ -10,6 +10,7 @@ type Thread = {
   buyerEmail?: string;
   lastMessage: string;
   lastMessageAt: string;
+  lastMessageBy?: string;
   unread: boolean;
 };
 
@@ -17,6 +18,7 @@ type ChatMessage = {
   id: string;
   text: string;
   sender_type: string;
+  sender_label?: string;
   timestamp: string;
 };
 
@@ -31,7 +33,7 @@ export default function ChatManagementPage() {
   const messagesRef = useRef<ChatMessage[]>([]);
   const typingRef = useRef(0);
 
-  const fetchThreads = () => {
+  const fetchThreads = useCallback(() => {
     setLoading(true);
     getSellerChatThreads()
       .then((res) => {
@@ -42,11 +44,15 @@ export default function ChatManagementPage() {
         }
       })
       .finally(() => setLoading(false));
-  };
+  }, [selectedId]);
 
   useEffect(() => {
-    fetchThreads();
-  }, []);
+    const timeoutId = window.setTimeout(() => {
+      fetchThreads();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [fetchThreads]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -83,7 +89,7 @@ export default function ChatManagementPage() {
     return () => {
       source.close();
     };
-  }, [selectedId]);
+  }, [fetchThreads, selectedId]);
 
   useEffect(() => {
     listRef.current?.scrollTo(0, listRef.current.scrollHeight);
@@ -111,7 +117,7 @@ export default function ChatManagementPage() {
       fetchThreads();
     }, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchThreads]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -144,12 +150,18 @@ export default function ChatManagementPage() {
     const text = input.trim();
     setInput("");
     const tempId = `tmp-${Date.now()}`;
-    setMessages((prev) => [...prev, { id: tempId, text, sender_type: "seller", timestamp: "now" }]);
+    setMessages((prev) => [...prev, { id: tempId, text, sender_type: "seller", sender_label: "You", timestamp: "now" }]);
     const res = await sendSellerChatMessage(selectedId, text);
     sendSellerChatTyping(selectedId, false).catch(() => {});
     setMessages((prev) => [
       ...prev.filter((m) => m.id !== tempId),
-      { id: res.message.id, text: res.message.text, sender_type: "seller", timestamp: res.message.timestamp },
+      {
+        id: res.message.id,
+        text: res.message.text,
+        sender_type: "seller",
+        sender_label: res.message.sender_label,
+        timestamp: res.message.timestamp,
+      },
     ]);
     fetchThreads();
   };
@@ -212,11 +224,28 @@ export default function ChatManagementPage() {
                     <div
                       key={msg.id}
                       className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
-                        msg.sender_type === "seller" ? "ml-auto bg-orange-600 text-white" : "bg-white text-gray-800"
+                        msg.sender_type === "seller"
+                          ? "ml-auto bg-orange-600 text-white"
+                          : msg.sender_type === "admin"
+                            ? "bg-blue-50 text-blue-900 border border-blue-100"
+                            : "bg-white text-gray-800"
                       }`}
                     >
+                      {msg.sender_type !== "seller" && (
+                        <div className={`mb-1 text-[11px] font-medium uppercase tracking-[0.08em] ${
+                          msg.sender_type === "admin" ? "text-blue-600" : "text-gray-400"
+                        }`}>
+                          {msg.sender_label || (msg.sender_type === "admin" ? "Customer Support" : selected?.buyerName || "Buyer")}
+                        </div>
+                      )}
                       <div>{msg.text}</div>
-                      <div className={`mt-1 text-xs ${msg.sender_type === "seller" ? "text-orange-100" : "text-gray-400"}`}>
+                      <div className={`mt-1 text-xs ${
+                        msg.sender_type === "seller"
+                          ? "text-orange-100"
+                          : msg.sender_type === "admin"
+                            ? "text-blue-500"
+                            : "text-gray-400"
+                      }`}>
                         {msg.timestamp}
                       </div>
                     </div>

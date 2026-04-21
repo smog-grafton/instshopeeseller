@@ -1,23 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createSellerBankAccount, deleteSellerBankAccount, getSellerBankAccounts, updateSellerBankAccount } from "@/lib/api-client";
+
+type SellerBankAccount = {
+  id: number;
+  bank_name: string;
+  account_name: string;
+  account_number: string;
+  currency?: string | null;
+  is_default: boolean;
+};
 
 export default function BankAccountsPage() {
   const [loading, setLoading] = useState(true);
-  const [accounts, setAccounts] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<SellerBankAccount[]>([]);
   const [form, setForm] = useState({ bank_name: "", account_name: "", account_number: "", currency: "" });
 
-  const loadData = () => {
+  const loadData = useCallback(() => {
     setLoading(true);
     getSellerBankAccounts()
       .then((res) => setAccounts(res.accounts || []))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    const timeoutId = window.setTimeout(() => {
+      loadData();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadData]);
 
   const onCreate = async () => {
     if (!form.bank_name || !form.account_name || !form.account_number) return;
@@ -36,6 +49,9 @@ export default function BankAccountsPage() {
       <div>
         <div className="text-sm text-gray-500">Finance</div>
         <h1 className="text-xl font-semibold text-gray-900">Bank Accounts</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Adding a bank account is optional here. You only need one when you are ready to receive withdrawals or payouts.
+        </p>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg p-4">
@@ -76,7 +92,7 @@ export default function BankAccountsPage() {
         {loading ? (
           <div className="p-6 text-sm text-gray-500">Loading accounts...</div>
         ) : accounts.length === 0 ? (
-          <div className="p-6 text-sm text-gray-500">No bank accounts yet.</div>
+          <div className="p-6 text-sm text-gray-500">No bank accounts yet. That is okay for now, and it will not block the rest of your seller flow.</div>
         ) : (
           <div className="divide-y divide-gray-100">
             {accounts.map((account) => (

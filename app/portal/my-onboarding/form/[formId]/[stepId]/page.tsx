@@ -9,7 +9,6 @@ import {
   saveOnboardingStep2,
   saveOnboardingStep3,
   submitOnboarding,
-  sendPhoneVerificationCode,
   getCountries,
   getSellerApplication,
   Address,
@@ -23,6 +22,25 @@ import Link from "next/link";
 
 const STEP_IDS = { step1: "311300", step2: "311301", step3: "311302", step4: "311303" } as const;
 
+type OnboardingApplicationSnapshot = {
+  shop_name?: string;
+  phone?: string;
+  invitation_code?: string;
+  shipping_preference?: ShippingPreference;
+  preferred_couriers?: PreferredCourier[];
+  cod_enabled?: boolean;
+  days_to_ship?: number | string | null;
+  identity_document_url?: string;
+  business_registration_url?: string;
+  bank_account_name?: string;
+  bank_account_number?: string;
+  bank_name?: string;
+};
+
+type ApiErrorWithFields = Error & {
+  errors?: Record<string, string[]>;
+};
+
 export default function OnboardingFormPage() {
   const params = useParams();
   const router = useRouter();
@@ -33,14 +51,11 @@ export default function OnboardingFormPage() {
   const [shopName, setShopName] = useState("");
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [phone, setPhone] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
+  const [invitationCode, setInvitationCode] = useState("");
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
-  const [sendingCode, setSendingCode] = useState(false);
-  const [codeSent, setCodeSent] = useState(false);
   const [countries, setCountries] = useState<CountryOption[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<CountryOption | null>(null);
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
@@ -94,10 +109,11 @@ export default function OnboardingFormPage() {
     if (!user) return;
     getSellerApplication()
       .then((res) => {
-        const app = res.application as any;
+        const app = res.application as OnboardingApplicationSnapshot | null;
         if (!app) return;
         if (app.shop_name) setShopName(app.shop_name);
         if (app.phone) setPhone(String(app.phone).replace(/^\+\d+/, "") || app.phone);
+        if (app.invitation_code) setInvitationCode(app.invitation_code);
         if (app.shipping_preference) setShippingPreference(app.shipping_preference);
         if (Array.isArray(app.preferred_couriers) && app.preferred_couriers.length) setPreferredCouriers(app.preferred_couriers);
         if (typeof app.cod_enabled === "boolean") setCodEnabled(app.cod_enabled);
@@ -143,24 +159,6 @@ export default function OnboardingFormPage() {
     ? `+${selectedCountry.callingCode}${phone.replace(/\D/g, "")}`
     : phone;
 
-  const handleSendVerificationCode = async () => {
-    if (!phone.trim() || phone.replace(/\D/g, "").length < 8) {
-      alert("Please enter a valid phone number");
-      return;
-    }
-
-    setSendingCode(true);
-    try {
-      await sendPhoneVerificationCode(fullPhoneNumber);
-      setCodeSent(true);
-      alert("Verification code sent! Check your phone.");
-    } catch (error: any) {
-      alert(error.message || "Failed to send verification code");
-    } finally {
-      setSendingCode(false);
-    }
-  };
-
   const handleSave = async () => {
     if (!shopName.trim()) {
       alert("Please enter a shop name");
@@ -173,11 +171,11 @@ export default function OnboardingFormPage() {
         shop_name: shopName,
         pickup_address_id: selectedAddressId ?? undefined,
         phone: fullPhoneNumber.trim() || undefined,
-        phone_verification_code: verificationCode || undefined,
+        invitation_code: invitationCode.trim().toUpperCase() || undefined,
       });
       alert("Form saved successfully!");
-    } catch (error: any) {
-      alert(error.message || "Failed to save form");
+    } catch (error: unknown) {
+      alert(getErrorMessage(error, "Failed to save form"));
     } finally {
       setSaving(false);
     }
@@ -195,11 +193,11 @@ export default function OnboardingFormPage() {
           shop_name: shopName,
           pickup_address_id: selectedAddressId ?? undefined,
           phone: fullPhoneNumber.trim() || undefined,
-          phone_verification_code: verificationCode || undefined,
+          invitation_code: invitationCode.trim().toUpperCase() || undefined,
         });
         router.push(`/portal/my-onboarding/form/${formId}/${STEP_IDS.step2}`);
-      } catch (error: any) {
-        alert(error.message || "Failed to save form");
+      } catch (error: unknown) {
+        alert(getErrorMessage(error, "Failed to save form"));
       } finally {
         setSaving(false);
       }
@@ -229,8 +227,8 @@ export default function OnboardingFormPage() {
           shipping_terms_accepted: true,
         });
         router.push(`/portal/my-onboarding/form/${formId}/${STEP_IDS.step3}`);
-      } catch (error: any) {
-        alert(error.message || "Failed to save");
+      } catch (error: unknown) {
+        alert(getErrorMessage(error, "Failed to save"));
       } finally {
         setSaving(false);
       }
@@ -257,9 +255,9 @@ export default function OnboardingFormPage() {
       try {
         await saveOnboardingStep3(formData);
         router.push(`/portal/my-onboarding/form/${formId}/${STEP_IDS.step4}`);
-      } catch (error: any) {
-        const err = error as { errors?: Record<string, string[]> };
-        const msg = err.errors ? Object.values(err.errors).flat().join(" ") : error.message;
+      } catch (error: unknown) {
+        const err = error as ApiErrorWithFields;
+        const msg = err.errors ? Object.values(err.errors).flat().join(" ") : getErrorMessage(error, "Failed to save");
         alert(msg || "Failed to save");
       } finally {
         setSaving(false);
@@ -268,20 +266,16 @@ export default function OnboardingFormPage() {
   };
 
   const handleSubmitApplication = async () => {
-    if (!bankAccountName.trim() || !bankAccountNumber.trim() || !bankName.trim()) {
-      alert("Please fill in all bank details");
-      return;
-    }
     setSaving(true);
     try {
       await submitOnboarding({
-        bank_account_name: bankAccountName.trim(),
-        bank_account_number: bankAccountNumber.trim(),
-        bank_name: bankName.trim(),
+        bank_account_name: bankAccountName.trim() || undefined,
+        bank_account_number: bankAccountNumber.trim() || undefined,
+        bank_name: bankName.trim() || undefined,
       });
       window.location.href = "/";
-    } catch (error: any) {
-      alert(error.message || "Failed to submit application");
+    } catch (error: unknown) {
+      alert(getErrorMessage(error, "Failed to submit application"));
     } finally {
       setSaving(false);
     }
@@ -314,6 +308,14 @@ export default function OnboardingFormPage() {
 
   const formatAddress = (address: Address) => {
     return `${address.fullName} | ${address.phoneNumber}\n${address.streetAddress}${address.unitNo ? `, ${address.unitNo}` : ""}\n${address.stateArea}\n${address.postalCode}`;
+  };
+
+  const getErrorMessage = (error: unknown, fallback: string) => {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    return fallback;
   };
 
   return (
@@ -568,31 +570,23 @@ export default function OnboardingFormPage() {
                       </div>
                     </div>
 
-                    {/* Phone Verification Code */}
+                    {/* Invitation Code */}
                     <div className="flex items-start">
-                      <label className="w-[200px] flex items-center justify-end min-h-8 mr-4 text-sm text-right flex-shrink-0 leading-4"></label>
+                      <label className="w-[200px] flex items-center justify-end min-h-8 mr-4 text-sm text-right flex-shrink-0 leading-4">
+                        Invitation Code <span className="text-gray-400 text-xs ml-1">(optional)</span>
+                      </label>
                       <div className="flex-1">
-                        <div className="flex items-center gap-4 max-w-[384px]">
-                          <div className="flex-1 relative">
-                            <div className="relative inline-table w-full h-8 border border-gray-200 rounded">
-                              <input
-                                type="text"
-                                maxLength={6}
-                                value={verificationCode}
-                                onChange={(e) => setVerificationCode(e.target.value)}
-                                placeholder="Phone Verification Code"
-                                className="inline-block w-full h-[30px] px-3 border-0 outline-0 text-sm text-gray-700 bg-transparent rounded"
-                              />
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={handleSendVerificationCode}
-                            disabled={sendingCode || !phone || phone.length < 8}
-                            className="h-8 px-4 border border-orange-600 text-orange-600 rounded text-sm font-medium hover:bg-orange-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex-shrink-0"
-                          >
-                            {sendingCode ? "Sending..." : "Send"}
-                          </button>
+                        <div className="max-w-[384px] space-y-2">
+                          <input
+                            type="text"
+                            value={invitationCode}
+                            onChange={(e) => setInvitationCode(e.target.value.toUpperCase())}
+                            placeholder="e.g. SHOPEE-X2"
+                            className="w-full h-8 px-3 border border-gray-200 rounded text-sm text-gray-700 outline-0"
+                          />
+                          <p className="text-xs text-gray-500">
+                            Add the invitation code given to you by support or an admin. You can continue without one.
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -839,9 +833,12 @@ export default function OnboardingFormPage() {
 
                   {stepId === STEP_IDS.step4 && (
                     <div className="space-y-6">
+                      <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                        Bank details are optional during onboarding. You can submit now and add or update payout accounts later in Finance &gt; Bank Accounts.
+                      </div>
                       <div className="flex items-start mb-6">
                         <label className="w-[200px] flex items-center justify-end min-h-8 mr-4 text-sm text-right flex-shrink-0 leading-4">
-                          <span className="text-red-500 mr-1">*</span> Bank account name
+                          Bank account name <span className="text-gray-400 text-xs ml-1">(optional)</span>
                         </label>
                         <div className="flex-1 max-w-[384px]">
                           <input
@@ -855,7 +852,7 @@ export default function OnboardingFormPage() {
                       </div>
                       <div className="flex items-start mb-6">
                         <label className="w-[200px] flex items-center justify-end min-h-8 mr-4 text-sm text-right flex-shrink-0 leading-4">
-                          <span className="text-red-500 mr-1">*</span> Bank account number
+                          Bank account number <span className="text-gray-400 text-xs ml-1">(optional)</span>
                         </label>
                         <div className="flex-1 max-w-[384px]">
                           <input
@@ -869,7 +866,7 @@ export default function OnboardingFormPage() {
                       </div>
                       <div className="flex items-start mb-6">
                         <label className="w-[200px] flex items-center justify-end min-h-8 mr-4 text-sm text-right flex-shrink-0 leading-4">
-                          <span className="text-red-500 mr-1">*</span> Bank name
+                          Bank name <span className="text-gray-400 text-xs ml-1">(optional)</span>
                         </label>
                         <div className="flex-1 max-w-[384px]">
                           <input
