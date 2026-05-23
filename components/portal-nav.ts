@@ -5,7 +5,19 @@ export type NavItem = {
 
 export type NavGroup = {
   label: string;
-  icon: "order" | "product" | "marketing" | "customer" | "finance" | "data" | "shop" | "dashboard" | "wholesale";
+  icon:
+    | "account"
+    | "order"
+    | "product"
+    | "message"
+    | "finance"
+    | "shop"
+    | "wallet"
+    | "card"
+    | "address"
+    | "history"
+    | "news"
+    | "wholesale";
   items: NavItem[];
   standalone?: boolean;
   important?: boolean;
@@ -14,100 +26,117 @@ export type NavGroup = {
 
 export const portalNav: NavGroup[] = [
   {
-    label: "Wholesale Centre",
-    icon: "wholesale",
+    label: "My account",
+    icon: "account",
     standalone: true,
     important: true,
     defaultOpen: true,
-    items: [{ label: "Wholesale Centre", href: "/portal/wholesale-centre" }],
+    items: [{ label: "My account", href: "/portal/my-account" }],
   },
   {
-    label: "Dashboard",
-    icon: "dashboard",
-    important: true,
-    defaultOpen: true,
-    items: [{ label: "Overview", href: "/portal/dashboard" }],
-  },
-  {
-    label: "Orders",
-    icon: "order",
-    important: true,
-    defaultOpen: true,
-    items: [
-      { label: "My Orders", href: "/portal/orders/my-orders" },
-      { label: "Mass Ship", href: "/portal/orders/mass-ship" },
-      { label: "Handover Centre", href: "/portal/orders/handover-centre" },
-      { label: "Return/Refund/Cancel", href: "/portal/orders/return-refund-cancel" },
-      { label: "Shipping Setting", href: "/portal/orders/shipping-setting" },
-    ],
-  },
-  {
-    label: "Product",
-    icon: "product",
-    important: true,
-    defaultOpen: true,
-    items: [
-      { label: "My Products", href: "/portal/products/my-products" },
-      { label: "Add New Product", href: "/portal/products/add-new" },
-      { label: "AI Optimiser", href: "/portal/products/ai-optimiser" },
-    ],
-  },
-  {
-    label: "Shop",
-    icon: "shop",
-    important: true,
-    defaultOpen: true,
-    items: [
-      { label: "Shop Information", href: "/portal/shop/shop-information" },
-      { label: "Shop Decoration", href: "/portal/shop/shop-decoration" },
-      { label: "Shop Setting", href: "/portal/shop/shop-setting" },
-      { label: "Appeal Management", href: "/portal/shop/appeal-management" },
-    ],
-  },
-  {
-    label: "Finance",
+    label: "Current balance",
     icon: "finance",
+    standalone: true,
+    items: [{ label: "Current balance", href: "/portal/current-balance" }],
+  },
+  {
+    label: "My Order",
+    icon: "order",
+    standalone: true,
+    items: [{ label: "My Order", href: "/portal/my-order" }],
+  },
+  {
+    label: "My message",
+    icon: "message",
+    standalone: true,
+    items: [{ label: "My message", href: "/portal/my-message" }],
+  },
+  {
+    label: "Site message",
+    icon: "message",
+    standalone: true,
+    items: [{ label: "Site message", href: "/portal/site-message" }],
+  },
+  {
+    label: "Billing Details",
+    icon: "finance",
+    standalone: true,
+    items: [{ label: "Billing Details", href: "/portal/billing-details" }],
+  },
+  {
+    label: "Recharge record",
+    icon: "wallet",
+    standalone: true,
+    items: [{ label: "Recharge record", href: "/portal/recharge-record" }],
+  },
+  {
+    label: "Withdrawals record",
+    icon: "wallet",
+    standalone: true,
+    items: [{ label: "Withdrawals record", href: "/portal/withdrawals-record" }],
+  },
+  {
+    label: "Wallet management",
+    icon: "wallet",
+    standalone: true,
+    items: [{ label: "Wallet management", href: "/portal/wallet-management" }],
+  },
+  {
+    label: "Bank card management",
+    icon: "card",
+    standalone: true,
+    items: [{ label: "Bank card management", href: "/portal/bank-card-management" }],
+  },
+  {
+    label: "Shipping address management",
+    icon: "address",
+    standalone: true,
+    items: [{ label: "Shipping address management", href: "/portal/shipping-address-management" }],
+  },
+  {
+    label: "Stores you follow",
+    icon: "shop",
+    standalone: true,
+    items: [{ label: "Stores you follow", href: "/portal/stores-you-follow" }],
+  },
+  {
+    label: "Browsing history",
+    icon: "history",
+    standalone: true,
+    items: [{ label: "Browsing history", href: "/portal/browsing-history" }],
+  },
+  {
+    label: "Wholesale center",
+    icon: "wholesale",
+    standalone: true,
     important: true,
-    defaultOpen: true,
-    items: [
-      { label: "My Income", href: "/portal/finance/my-income" },
-      { label: "My Balance", href: "/portal/finance/my-balance" },
-      { label: "Bank Accounts", href: "/portal/finance/bank-accounts" },
-      { label: "SLoan for Sellers", href: "/portal/finance/sloan" },
-    ],
+    items: [{ label: "Wholesale center", href: "/portal/wholesale-center" }],
   },
   {
-    label: "Marketing Centre",
-    icon: "marketing",
-    defaultOpen: false,
-    items: [
-      { label: "Marketing Centre", href: "/portal/marketing/centre" },
-      { label: "Cheapest on Shopee", href: "/portal/marketing/cheapest" },
-      { label: "Shopee Ads", href: "/portal/marketing/ads" },
-      { label: "Affiliate Marketing", href: "/portal/marketing/affiliate" },
-      { label: "Live & Video", href: "/portal/marketing/live-video" },
-      { label: "Discount", href: "/portal/marketing/discount" },
-      { label: "My Shop's Shocking Sale", href: "/portal/marketing/shocking-sale" },
-      { label: "Vouchers", href: "/portal/marketing/vouchers" },
-      { label: "Campaign", href: "/portal/marketing/campaign" },
-    ],
+    label: "My shop",
+    icon: "shop",
+    standalone: true,
+    important: true,
+    items: [{ label: "My shop", href: "/portal/my-shop" }],
   },
   {
-    label: "Customer Service",
-    icon: "customer",
-    defaultOpen: false,
-    items: [
-      { label: "Chat Management", href: "/portal/customer-service/chat-management" },
-      { label: "Review Management", href: "/portal/customer-service/review-management" },
-    ],
+    label: "Store news",
+    icon: "news",
+    standalone: true,
+    items: [{ label: "Store news", href: "/portal/store-news" }],
   },
   {
-    label: "Data",
-    icon: "data",
-    defaultOpen: false,
-    items: [
-      { label: "Business Insights", href: "/portal/data/business-insights" },
-      { label: "Account Health", href: "/portal/data/account-health" },
-    ],
+    label: "Product management",
+    icon: "product",
+    standalone: true,
+    important: true,
+    items: [{ label: "Product management", href: "/portal/product-management" }],
+  },
+  {
+    label: "Store order management",
+    icon: "order",
+    standalone: true,
+    important: true,
+    items: [{ label: "Store order management", href: "/portal/store-order-management" }],
   },
 ];

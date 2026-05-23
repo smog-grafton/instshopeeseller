@@ -227,10 +227,11 @@ export async function getSellerDashboardMetrics() {
   return apiFetch<{ success: boolean; metrics: any }>(`/seller/dashboard/metrics`);
 }
 
-export async function getSellerOrders(params?: { search?: string; status?: string }) {
+export async function getSellerOrders(params?: { search?: string; status?: string; statuses?: string }) {
   const query = new URLSearchParams();
   if (params?.search) query.set("search", params.search);
   if (params?.status) query.set("status", params.status);
+  if (params?.statuses) query.set("statuses", params.statuses);
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return apiFetch<{ success: boolean; orders: any }>(`/seller/orders${suffix}`);
 }
@@ -446,6 +447,10 @@ export async function getSellerChatThreads() {
   return apiFetch<{ success: boolean; threads: any[] }>(`/seller/chat/threads`);
 }
 
+export async function getSellerSupportThread() {
+  return apiFetch<{ success: boolean; thread: any }>(`/seller/chat/support`);
+}
+
 export async function getSellerChatMessages(threadId: string, afterId?: number) {
   const query = afterId ? `?after_id=${afterId}` : "";
   return apiFetch<{ success: boolean; messages: { id: string; text: string; sender_type: string; sender_label?: string; timestamp: string }[] }>(
@@ -478,6 +483,96 @@ export async function getNotifications(type?: string) {
   return apiFetch<{ success: boolean; notifications: any }>(`/notifications${suffix}`);
 }
 
+export async function getFollowedStores() {
+  return apiFetch<{ success: boolean; stores: any[] }>(`/user/followed-stores`);
+}
+
+export async function getBrowsingHistory() {
+  return apiFetch<{ success: boolean; items: any[] }>(`/user/browsing-history`);
+}
+
+export async function getSellerAccount() {
+  return apiFetch<{ success: boolean; account: any }>(`/seller/account`);
+}
+
+export async function updateSellerAccountProfile(data: { email: string; phone?: string | null }) {
+  return apiFetch<{ success: boolean; account: any }>(`/seller/account/profile`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateSellerLoginPassword(data: {
+  current_password: string;
+  password: string;
+  password_confirmation: string;
+}) {
+  return apiFetch<{ success: boolean; message: string }>(`/seller/account/login-password`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateSellerTransactionPassword(data: {
+  current_password?: string;
+  password: string;
+  password_confirmation: string;
+}) {
+  return apiFetch<{ success: boolean; message: string }>(`/seller/account/transaction-password`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getSellerSiteMessages(page = 1) {
+  return apiFetch<{ success: boolean; messages: any }>(`/seller/site-messages?page=${page}`);
+}
+
+export async function getSellerBillingRecords(page = 1) {
+  return apiFetch<{ success: boolean; records: any }>(`/seller/finance/billing-records?page=${page}`);
+}
+
+export async function getSellerRechargeRecords(status = "all", page = 1) {
+  const query = new URLSearchParams({ status, page: String(page) });
+  return apiFetch<{ success: boolean; records: any }>(`/seller/finance/recharge-records?${query.toString()}`);
+}
+
+export async function getSellerWithdrawalRecords(status = "all", page = 1) {
+  const query = new URLSearchParams({ status, page: String(page) });
+  return apiFetch<{ success: boolean; records: any }>(`/seller/finance/withdrawal-records?${query.toString()}`);
+}
+
+export async function getSellerWalletAddresses() {
+  return apiFetch<{ success: boolean; addresses: any[] }>(`/seller/wallet-addresses`);
+}
+
+export async function createSellerWalletAddress(data: {
+  currency: string;
+  network: string;
+  address: string;
+  is_default?: boolean;
+}) {
+  return apiFetch<{ success: boolean; address: any }>(`/seller/wallet-addresses`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getSellerShippingProfile() {
+  return apiFetch<{ success: boolean; shipping: any }>(`/seller/shipping-profile`);
+}
+
+export async function updateSellerShippingProfile(data: {
+  shipping_address: string;
+  telephone: string;
+  consignee_name: string;
+}) {
+  return apiFetch<{ success: boolean; shipping: any }>(`/seller/shipping-profile`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
 export async function logoutApi(): Promise<void> {
   try {
     await apiFetch("/auth/logout", { method: "POST" });
@@ -501,6 +596,26 @@ export interface Address {
 
 export async function getUserAddresses() {
   return apiFetch<{ addresses: Address[] }>("/addresses");
+}
+
+export async function createUserAddress(data: Record<string, unknown>) {
+  return apiFetch<{ address: Address }>("/addresses", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateUserAddress(id: string, data: Record<string, unknown>) {
+  return apiFetch<{ address: Address }>(`/addresses/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteUserAddress(id: string) {
+  return apiFetch<{ message: string }>(`/addresses/${id}`, {
+    method: "DELETE",
+  });
 }
 
 export interface CountryOption {

@@ -53,7 +53,7 @@ export default function PortalTopbar({ onOpenMenu }: { onOpenMenu: () => void })
       </div>
       <div className="flex items-center gap-3 sm:gap-4 min-w-0 overflow-x-auto overflow-y-hidden flex-1 justify-end md:flex-initial [scrollbar-width:thin]">
         <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
-          <Link href="/portal/wholesale-centre" className="text-gray-500 hover:text-gray-700 flex-shrink-0" title="Wholesale Centre">
+          <Link href="/portal/my-shop" className="text-gray-500 hover:text-gray-700 flex-shrink-0" title="My shop">
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
               <path d="M4 8.5h16v10.5H4z" stroke="currentColor" strokeWidth="1.5" />
               <path d="M7 8.5V5h10v3.5" stroke="currentColor" strokeWidth="1.5" />
@@ -64,12 +64,23 @@ export default function PortalTopbar({ onOpenMenu }: { onOpenMenu: () => void })
             type="button"
             className="text-gray-500 hover:text-gray-700 flex-shrink-0"
             title="Help"
-            onClick={() => router.push("/portal/customer-service/chat-management")}
+            onClick={() => router.push("/portal/my-message?support=1")}
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6" />
               <path d="M9.5 9a2.5 2.5 0 015 0c0 1.5-2.5 1.5-2.5 3" stroke="currentColor" strokeWidth="1.6" />
               <circle cx="12" cy="17" r="1" fill="currentColor" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="text-gray-500 hover:text-red-600 flex-shrink-0"
+            title="Log out"
+            onClick={onLogout}
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+              <path d="M10 6H5v12h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M14 8l4 4-4 4M18 12H9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
           <div className="relative flex-shrink-0" ref={menuRef}>

@@ -22,7 +22,7 @@ function isOnboardingPath(pathname: string): boolean {
 }
 
 function isDashboardPath(pathname: string): boolean {
-  return pathname === "/portal/dashboard";
+  return pathname === "/portal/my-account" || pathname === "/portal/dashboard";
 }
 
 export function resolveSellerPortalAccessState(user?: ApiUser | null): SellerPortalAccessState {
@@ -61,7 +61,7 @@ export function resolveSellerPortalEntry(user?: ApiUser | null): SellerPortalRed
   }
 
   if (state === "approved" || state === "pending" || state === "suspended") {
-    return { type: "internal", href: "/portal/dashboard" };
+    return { type: "internal", href: "/portal/my-account" };
   }
 
   return { type: "internal", href: "/portal/my-onboarding" };
@@ -75,11 +75,11 @@ export function resolveSellerPortalRoute(user: ApiUser, pathname: string): Selle
   }
 
   if (state === "approved") {
-    return isOnboardingPath(pathname) ? { type: "internal", href: "/portal/dashboard" } : null;
+    return isOnboardingPath(pathname) || pathname === "/portal/dashboard" ? { type: "internal", href: "/portal/my-account" } : null;
   }
 
   if (state === "pending" || state === "suspended") {
-    return isDashboardPath(pathname) ? null : { type: "internal", href: "/portal/dashboard" };
+    return isDashboardPath(pathname) ? null : { type: "internal", href: "/portal/my-account" };
   }
 
   return isOnboardingPath(pathname) ? null : { type: "internal", href: "/portal/my-onboarding" };

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { getApiBaseUrl, getSellerChatMessages, getSellerChatThreads, sendSellerChatMessage, sendSellerChatTyping } from "@/lib/api-client";
+import { useSearchParams } from "next/navigation";
+import { getApiBaseUrl, getSellerChatMessages, getSellerChatThreads, getSellerSupportThread, sendSellerChatMessage, sendSellerChatTyping } from "@/lib/api-client";
 
 type Thread = {
   id: string;
@@ -23,6 +24,7 @@ type ChatMessage = {
 };
 
 export default function ChatManagementPage() {
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -32,6 +34,7 @@ export default function ChatManagementPage() {
   const listRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
   const typingRef = useRef(0);
+  const supportOpenedRef = useRef(false);
 
   const fetchThreads = useCallback(() => {
     setLoading(true);
@@ -53,6 +56,26 @@ export default function ChatManagementPage() {
 
     return () => window.clearTimeout(timeoutId);
   }, [fetchThreads]);
+
+  useEffect(() => {
+    if (searchParams.get("support") !== "1" || supportOpenedRef.current) return;
+    supportOpenedRef.current = true;
+    const timeoutId = window.setTimeout(() => {
+      setLoading(true);
+      getSellerSupportThread()
+        .then((res) => {
+          const thread = res.thread;
+          if (!thread) return;
+          setThreads((current) => {
+            const existing = current.some((item) => item.id === thread.id);
+            return existing ? current.map((item) => (item.id === thread.id ? thread : item)) : [thread, ...current];
+          });
+          setSelectedId(thread.id);
+        })
+        .finally(() => setLoading(false));
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchParams]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -181,7 +204,7 @@ export default function ChatManagementPage() {
             placeholder="Search customer or email..."
             className="h-9 px-3 border border-gray-200 rounded text-sm w-full md:w-72"
           />
-          <button onClick={fetchThreads} className="h-9 px-3 border border-gray-200 rounded text-sm hover:bg-gray-50">Refresh</button>
+          <button onClick={fetchThreads} className="h-9 px-3 border border-gray-200 text-sm hover:bg-gray-50">Refresh</button>
         </div>
       </div>
 

@@ -2,7 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getNotifications } from "@/lib/api-client";
+import { getNotifications, getSellerSiteMessages } from "@/lib/api-client";
+
+type NotificationItem = {
+  id: string;
+  title?: string;
+  message?: string;
+  createdAt?: string;
+};
+
+type SiteMessageItem = {
+  id?: string | number;
+  title?: string;
+  message?: string;
+  sent_at?: string;
+};
 
 export default function PortalRightbar() {
   const router = useRouter();
@@ -10,16 +24,31 @@ export default function PortalRightbar() {
   const [showNotificationTooltip, setShowNotificationTooltip] = useState(false);
   const [showSupportTooltip, setShowSupportTooltip] = useState(false);
   const [showChatTooltip, setShowChatTooltip] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   useEffect(() => {
     if (!showNotificationPanel) return;
-    setLoadingNotifications(true);
-    getNotifications("wallet")
-      .then((res) => setNotifications(res.notifications || []))
-      .catch(() => setNotifications([]))
-      .finally(() => setLoadingNotifications(false));
+    const timeoutId = window.setTimeout(() => {
+      setLoadingNotifications(true);
+      Promise.all([getSellerSiteMessages(1).catch(() => ({ messages: { data: [] } })), getNotifications("wallet").catch(() => ({ notifications: [] }))])
+        .then(([siteRes, walletRes]) => {
+          const siteMessages: SiteMessageItem[] = Array.isArray(siteRes.messages?.data) ? siteRes.messages.data : [];
+          const walletNotifications: NotificationItem[] = Array.isArray(walletRes.notifications) ? walletRes.notifications : [];
+          setNotifications([
+            ...siteMessages.map((message) => ({
+              id: `site-${message.id ?? Math.random()}`,
+              title: message.title || "System information",
+              message: message.message || "",
+              createdAt: message.sent_at || "",
+            })),
+            ...walletNotifications,
+          ]);
+        })
+        .catch(() => setNotifications([]))
+        .finally(() => setLoadingNotifications(false));
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [showNotificationPanel]);
 
   return (
@@ -52,7 +81,7 @@ export default function PortalRightbar() {
           <div className="relative mb-1">
             <button
               type="button"
-              onClick={() => router.push("/portal/customer-service/chat-management")}
+              onClick={() => router.push("/portal/my-message?support=1")}
               onMouseEnter={() => setShowSupportTooltip(true)}
               onMouseLeave={() => setShowSupportTooltip(false)}
               className="flex items-center justify-center w-12 h-12 cursor-pointer hover:bg-gray-50 transition-colors rounded relative"
@@ -77,7 +106,7 @@ export default function PortalRightbar() {
           <div className="relative">
             <button
               type="button"
-              onClick={() => router.push("/portal/customer-service/chat-management")}
+              onClick={() => router.push("/portal/my-message")}
               onMouseEnter={() => setShowChatTooltip(true)}
               onMouseLeave={() => setShowChatTooltip(false)}
               className="flex items-center justify-center w-12 h-12 cursor-pointer hover:bg-gray-50 transition-colors rounded"

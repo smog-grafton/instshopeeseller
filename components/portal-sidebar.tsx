@@ -8,23 +8,26 @@ import { getCatalogProducts, getSellerOrders, logoutApi } from "@/lib/api-client
 import { getBuyerLoginUrl } from "@/lib/utils";
 
 type IconName =
+  | "account"
   | "order"
   | "product"
-  | "marketing"
-  | "customer"
+  | "message"
   | "finance"
-  | "data"
   | "shop"
-  | "dashboard"
+  | "wallet"
+  | "card"
+  | "address"
+  | "history"
+  | "news"
   | "wholesale";
 
 type IndicatorKey = "orders" | "wholesale";
 
 const iconMap: Record<IconName, React.ReactElement> = {
-  dashboard: (
+  account: (
     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
-      <path d="M3 12l9-9 9 9" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M6 10v10h12V10" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M5 20c1.4-4.2 12.6-4.2 14 0" stroke="currentColor" strokeWidth="1.6" />
     </svg>
   ),
   order: (
@@ -38,17 +41,10 @@ const iconMap: Record<IconName, React.ReactElement> = {
       <path d="M9 10h6" stroke="currentColor" strokeWidth="1.6" />
     </svg>
   ),
-  marketing: (
+  message: (
     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
-      <path d="M3 11l18-6v14l-18-6v-2z" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M7 15v4" stroke="currentColor" strokeWidth="1.6" />
-    </svg>
-  ),
-  customer: (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
-      <circle cx="9" cy="9" r="3" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M3 20c1-4 11-4 12 0" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M16 8h5v8h-5" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M5 5h14v10H8l-3 3V5z" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M8 9h8M8 12h5" stroke="currentColor" strokeWidth="1.6" />
     </svg>
   ),
   finance: (
@@ -57,9 +53,35 @@ const iconMap: Record<IconName, React.ReactElement> = {
       <path d="M7 12h10" stroke="currentColor" strokeWidth="1.6" />
     </svg>
   ),
-  data: (
+  wallet: (
     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
-      <path d="M4 20V6m6 14V4m6 16v-9m4 9v-5" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M4 7h16v11H4z" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M15 11h5v4h-5z" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M7 7V5h10v2" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  ),
+  card: (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+      <rect x="4" y="6" width="16" height="12" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M4 10h16M7 15h4" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  ),
+  address: (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+      <path d="M12 21s6-5.5 6-11a6 6 0 10-12 0c0 5.5 6 11 6 11z" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="12" cy="10" r="2" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  ),
+  history: (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+      <path d="M5 12a7 7 0 117 7" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M5 8v4h4M12 8v5l3 2" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  ),
+  news: (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+      <path d="M5 5h14v14H5z" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M8 9h8M8 12h8M8 15h5" stroke="currentColor" strokeWidth="1.6" />
     </svg>
   ),
   shop: (
@@ -92,8 +114,8 @@ const getPaginationTotal = (value?: { total?: number; data?: unknown[] }) => {
 const formatBadgeCount = (count: number) => (count > 99 ? "99+" : String(count));
 
 const groupIndicatorKey = (label: string): IndicatorKey | null => {
-  if (label === "Orders") return "orders";
-  if (label === "Wholesale Centre") return "wholesale";
+  if (label === "My Order" || label === "Store order management") return "orders";
+  if (label === "Wholesale center") return "wholesale";
   return null;
 };
 
@@ -120,7 +142,7 @@ export default function PortalSidebar({
 
   const activeGroup = useMemo(() => {
     const match = portalNav.find((group) => group.items.some((item) => pathname.startsWith(item.href)));
-    return match?.label ?? "Wholesale Centre";
+    return match?.label ?? "My account";
   }, [pathname]);
 
   const loadIndicators = useCallback(async () => {
@@ -168,7 +190,11 @@ export default function PortalSidebar({
   }, [loadIndicators, pathname]);
 
   useEffect(() => {
-    setOpenGroups((current) => ({ ...current, [activeGroup]: true }));
+    const timeoutId = window.setTimeout(() => {
+      setOpenGroups((current) => ({ ...current, [activeGroup]: true }));
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [activeGroup]);
 
   const isOpen = (label: string) => openGroups[label] ?? false;
@@ -197,14 +223,7 @@ export default function PortalSidebar({
     );
   };
 
-  const renderImportantBadge = () => (
-    <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-orange-700 ring-1 ring-inset ring-orange-200">
-      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none">
-        <path d="M12 4l2.2 4.6 5.1.7-3.7 3.6.9 5.1-4.5-2.4-4.5 2.4.9-5.1-3.7-3.6 5.1-.7L12 4z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      </svg>
-      Important
-    </span>
-  );
+  const renderImportantBadge = () => null;
 
   return (
     <aside

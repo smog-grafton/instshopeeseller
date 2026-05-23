@@ -42,11 +42,12 @@ type OrderRecord = {
 };
 
 const STATUS_TABS = [
-  { key: "all", label: "All" },
-  { key: "to-ship", label: "To Ship" },
-  { key: "SHIPPED", label: "Shipped" },
-  { key: "DELIVERED", label: "Delivered" },
-  { key: "CANCELLED", label: "Cancelled" },
+  { key: "pending-payment", label: "Pending payment", statuses: "PENDING_PAYMENT,AWAITING_CASH" },
+  { key: "to-be-delivered", label: "To be delivered", statuses: "PAID,PROCESSING" },
+  { key: "awaiting-receipt", label: "Awaiting receipt", statuses: "SHIPPED" },
+  { key: "be-evaluated", label: "Be evaluated", statuses: "DELIVERED" },
+  { key: "completed", label: "Completed", statuses: "DELIVERED" },
+  { key: "refund-after-sales", label: "Refund/After-sales", statuses: "CANCELLED" },
 ] as const;
 
 type StatusTabKey = (typeof STATUS_TABS)[number]["key"];
@@ -56,7 +57,7 @@ const formatMoney = (amount: number, currencySymbol = "$") =>
 
 export default function SellerOrdersPage() {
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<StatusTabKey>("all");
+  const [status, setStatus] = useState<StatusTabKey>("pending-payment");
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [orders, setOrders] = useState<OrderRecord[]>([]);
@@ -64,23 +65,11 @@ export default function SellerOrdersPage() {
 
   const fetchOrders = async (nextStatus: StatusTabKey = status, nextSearch = appliedSearch) => {
     const query = nextSearch.trim() || undefined;
-    const request =
-      nextStatus === "to-ship"
-        ? Promise.all([
-            getSellerOrders({ status: "PAID", search: query }),
-            getSellerOrders({ status: "PROCESSING", search: query }),
-          ]).then(([paidRes, processingRes]) => {
-            const combined = [
-              ...(paidRes.orders?.data || []),
-              ...(processingRes.orders?.data || []),
-            ];
-            combined.sort((a, b) => b.id - a.id);
-            return combined;
-          })
-        : getSellerOrders({
-            status: nextStatus === "all" ? undefined : nextStatus,
-            search: query,
-          }).then((res) => res.orders?.data || []);
+    const selectedTab = STATUS_TABS.find((tab) => tab.key === nextStatus) || STATUS_TABS[0];
+    const request = getSellerOrders({
+      statuses: selectedTab.statuses,
+      search: query,
+    }).then((res) => res.orders?.data || []);
 
     const data = await request;
     setOrders(data);
@@ -93,23 +82,11 @@ export default function SellerOrdersPage() {
       const query = appliedSearch.trim();
       const nextStatus = status;
       const queryValue = query || undefined;
-      const request =
-        nextStatus === "to-ship"
-          ? Promise.all([
-              getSellerOrders({ status: "PAID", search: queryValue }),
-              getSellerOrders({ status: "PROCESSING", search: queryValue }),
-            ]).then(([paidRes, processingRes]) => {
-              const combined = [
-                ...(paidRes.orders?.data || []),
-                ...(processingRes.orders?.data || []),
-              ];
-              combined.sort((a, b) => b.id - a.id);
-              return combined;
-            })
-          : getSellerOrders({
-              status: nextStatus === "all" ? undefined : nextStatus,
-              search: queryValue,
-            }).then((res) => res.orders?.data || []);
+      const selectedTab = STATUS_TABS.find((tab) => tab.key === nextStatus) || STATUS_TABS[0];
+      const request = getSellerOrders({
+        statuses: selectedTab.statuses,
+        search: queryValue,
+      }).then((res) => res.orders?.data || []);
 
       const data = await request;
       if (!active) return;
@@ -152,17 +129,16 @@ export default function SellerOrdersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="text-sm text-gray-500">Order</div>
-        <h1 className="text-xl font-semibold text-gray-900">My Orders</h1>
+        <h1 className="text-3xl font-bold tracking-normal text-neutral-900">My Order</h1>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+      <div className="bg-white border border-gray-200 p-4 space-y-3">
         <div className="flex flex-col md:flex-row md:items-center gap-3">
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search order number..."
-            className="h-9 px-3 border border-gray-200 rounded text-sm w-full md:w-64"
+            className="h-9 px-3 border border-gray-200 text-sm w-full md:w-64"
           />
           <button
             onClick={() => {
@@ -173,14 +149,14 @@ export default function SellerOrdersPage() {
               }
               setAppliedSearch(search);
             }}
-            className="h-9 px-3 border border-gray-200 rounded text-sm hover:bg-gray-50"
+            className="h-9 px-3 border border-gray-200 text-sm hover:bg-gray-50"
           >
             Search
           </button>
           <div className="ml-auto text-sm text-gray-500">Total: {totalOrders}</div>
         </div>
 
-        <div className="flex gap-4 border-b border-gray-100">
+        <div className="flex gap-1 overflow-x-auto border-b border-gray-100">
           {STATUS_TABS.map((tab) => (
             <button
               key={tab.key}
@@ -188,16 +164,16 @@ export default function SellerOrdersPage() {
                 setLoading(true);
                 setStatus(tab.key);
               }}
-              className={`relative py-2 text-sm ${status === tab.key ? "text-orange-600" : "text-gray-600"}`}
+              className={`relative whitespace-nowrap px-4 py-3 text-sm font-semibold ${status === tab.key ? "text-red-600" : "text-gray-600"}`}
             >
               {tab.label}
-              {status === tab.key && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-orange-600" />}
+              {status === tab.key && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-red-600" />}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg">
+      <div className="bg-white border border-gray-200">
         <div className="px-4 py-3 border-b border-gray-200 text-sm font-medium text-gray-700">Orders</div>
         {loading ? (
           <div className="p-6 text-sm text-gray-500">Loading orders...</div>
@@ -216,7 +192,7 @@ export default function SellerOrdersPage() {
                       <span className="font-medium text-gray-800">{order.order_number}</span>
                       <span className="ml-3 text-xs text-gray-500">{new Date(order.created_at).toLocaleString()}</span>
                     </div>
-                    <div className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 w-fit">{order.status}</div>
+                    <div className="w-fit bg-gray-100 px-2 py-0.5 text-xs text-gray-700">{order.status}</div>
                   </div>
 
                   <div className="text-xs text-gray-500">
@@ -231,7 +207,7 @@ export default function SellerOrdersPage() {
                       const imageUrl = item.image_url || "/images/common/no-image.png";
                       return (
                         <div key={item.id} className="flex items-center gap-3">
-                          <div className="w-12 h-12 border border-gray-200 rounded overflow-hidden bg-gray-50">
+                          <div className="w-12 h-12 border border-gray-200 overflow-hidden bg-gray-50">
                             <Image
                               src={imageUrl}
                               alt={item.title}
@@ -261,7 +237,7 @@ export default function SellerOrdersPage() {
                     );
 
                     return (
-                      <div className="rounded-md border border-amber-100 bg-amber-50/70 p-3">
+                      <div className="border border-amber-100 bg-amber-50/70 p-3">
                         <div className="grid grid-cols-2 gap-3 text-xs text-gray-600 lg:grid-cols-4">
                           <div>
                             <div className="uppercase tracking-wide text-[11px] text-gray-500">Customer paid</div>
@@ -308,13 +284,13 @@ export default function SellerOrdersPage() {
                             placeholder="Shipping provider"
                             value={shipInfo[order.id]?.provider || ""}
                             onChange={(e) => updateShipInfo(order.id, "provider", e.target.value)}
-                            className="h-8 px-2 border border-gray-200 rounded text-xs"
+                            className="h-8 px-2 border border-gray-200 text-xs"
                           />
                           <input
                             placeholder="Tracking number"
                             value={shipInfo[order.id]?.tracking || ""}
                             onChange={(e) => updateShipInfo(order.id, "tracking", e.target.value)}
-                            className="h-8 px-2 border border-gray-200 rounded text-xs"
+                            className="h-8 px-2 border border-gray-200 text-xs"
                           />
                           <button
                             onClick={() =>
@@ -324,7 +300,7 @@ export default function SellerOrdersPage() {
                                 tracking_number: shipInfo[order.id]?.tracking || undefined,
                               })
                             }
-                            className="h-8 px-3 bg-orange-600 text-white rounded text-xs hover:bg-orange-700"
+                            className="h-8 px-3 bg-red-600 text-white text-xs hover:bg-red-700"
                           >
                             {Number(order.fulfillment_cost || 0) > 0
                               ? `Ship & Reserve ${formatMoney(Number(order.fulfillment_cost || 0), order.currency_symbol || "$")}`
@@ -335,7 +311,7 @@ export default function SellerOrdersPage() {
                       {order.status === "SHIPPED" && (
                         <button
                           onClick={() => handleStatusUpdate(order.id, { status: "DELIVERED" })}
-                          className="h-8 px-3 border border-gray-200 rounded text-xs hover:bg-gray-50"
+                          className="h-8 px-3 border border-gray-200 text-xs hover:bg-gray-50"
                         >
                           Mark Delivered
                         </button>
