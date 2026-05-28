@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import Image from "next/image";
 import {
   createSellerWalletAddress,
@@ -21,8 +21,11 @@ import {
   requestWalletTopup,
   updateSellerAccountProfile,
   updateSellerLoginPassword,
+  updateSellerShop,
   updateSellerShippingProfile,
   updateSellerTransactionPassword,
+  uploadSellerShopCover,
+  uploadSellerShopLogo,
 } from "@/lib/api-client";
 import type { CountryOption } from "@/lib/api-client";
 import { resolveBackendAssetUrl } from "@/lib/utils";
@@ -184,6 +187,8 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
   const [loginPasswordForm, setLoginPasswordForm] = useState({ current_password: "", password: "", password_confirmation: "" });
   const [transactionPasswordForm, setTransactionPasswordForm] = useState({ current_password: "", password: "", password_confirmation: "" });
   const [shippingForm, setShippingForm] = useState({ shipping_address: "", telephone: "", consignee_name: "" });
+  const [shopForm, setShopForm] = useState({ name: "", description: "", status_text: "", store_news: "" });
+  const [shopUploading, setShopUploading] = useState<"logo" | "cover" | null>(null);
   const [countries, setCountries] = useState<CountryOption[]>([]);
   const [accountModal, setAccountModal] = useState<"phone" | "email" | "login-password" | "transaction-password" | null>(null);
   const [phoneBindForm, setPhoneBindForm] = useState({ countryCode: "", phone: "", code: "" });
@@ -234,6 +239,12 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
       } else if (kind === "my-shop" || kind === "store-news") {
         const [shopRes, walletRes] = await Promise.all([getSellerShop(), getWallet().catch(() => null)]);
         setData({ shop: shopRes.shop, wallet: walletRes?.wallet });
+        setShopForm({
+          name: formatValue(shopRes.shop?.name, ""),
+          description: formatValue(shopRes.shop?.description, ""),
+          status_text: formatValue(shopRes.shop?.status_text, ""),
+          store_news: formatValue(shopRes.shop?.store_news, ""),
+        });
       } else if (kind === "wallet-management") {
         const [walletRes, addressRes, methodsRes] = await Promise.all([getWallet(), getSellerWalletAddresses(), getDepositPaymentMethods().catch(() => ({ methods: [] }))]);
         setData({ wallet: walletRes.wallet, addresses: addressRes.addresses || [], methods: methodsRes.methods || [] });
@@ -327,6 +338,32 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
     await updateSellerShippingProfile(shippingForm);
     setNotice("Shipping address saved.");
     await load();
+  };
+
+  const submitShopProfile = async () => {
+    await updateSellerShop(shopForm);
+    setNotice("Shop profile saved.");
+    await load();
+  };
+
+  const uploadShopMedia = async (event: ChangeEvent<HTMLInputElement>, type: "logo" | "cover") => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setShopUploading(type);
+    try {
+      if (type === "logo") {
+        await uploadSellerShopLogo(file);
+        setNotice("Shop logo updated.");
+      } else {
+        await uploadSellerShopCover(file);
+        setNotice("Shop cover updated.");
+      }
+      await load();
+    } finally {
+      setShopUploading(null);
+      event.target.value = "";
+    }
   };
 
   const submitWalletAddress = async () => {
@@ -515,6 +552,9 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
       {!loading && kind === "my-shop" ? (
         <>
           <section className="border-b border-neutral-200 pb-8">
+            {resolveBackendAssetUrl(formatValue(shop.cover_image_url, "")) ? (
+              <div className="mb-6 h-48 bg-neutral-100 bg-cover bg-center" style={{ backgroundImage: `url(${resolveBackendAssetUrl(formatValue(shop.cover_image_url, ""))})` }} />
+            ) : null}
             <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
               {resolveBackendAssetUrl(formatValue(shop.logo_url, "")) ? (
                 <div className="h-36 w-36 shrink-0 bg-cover bg-center" style={{ backgroundImage: `url(${resolveBackendAssetUrl(formatValue(shop.logo_url, ""))})` }} />
@@ -529,6 +569,16 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
                 <div>Store Level: <span className="font-bold">{formatValue(shop.store_level, "Crown, stars, stars")}</span></div>
               </div>
             </div>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <label className={lightButton}>
+                {shopUploading === "logo" ? "Uploading logo..." : "Upload logo"}
+                <input className="hidden" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => uploadShopMedia(event, "logo")} disabled={shopUploading !== null} />
+              </label>
+              <label className={lightButton}>
+                {shopUploading === "cover" ? "Uploading cover..." : "Upload cover"}
+                <input className="hidden" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => uploadShopMedia(event, "cover")} disabled={shopUploading !== null} />
+              </label>
+            </div>
           </section>
           <div className="grid md:grid-cols-3">
             <MetricCell label="Number of Products" value={formatValue(shopStats.products_count)} />
@@ -542,8 +592,25 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
             <MetricCell label="Account Balance" value={money(wallet.available_balance, walletCurrency)} />
           </div>
           <section className={`${panel} p-5`}>
-            <div className="text-xl font-bold text-neutral-900">{formatValue(shop.name, "My shop")}</div>
-            <div className="mt-2 text-sm leading-6 text-neutral-600">{formatValue(shop.description, "No shop description yet.")}</div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block">
+                <span className="text-sm font-semibold text-neutral-700">Store name</span>
+                <input className={`${input} mt-2`} value={shopForm.name} onChange={(event) => setShopForm((form) => ({ ...form, name: event.target.value }))} />
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-neutral-700">Store status text</span>
+                <input className={`${input} mt-2`} placeholder="Official Store" value={shopForm.status_text} onChange={(event) => setShopForm((form) => ({ ...form, status_text: event.target.value }))} />
+              </label>
+              <label className="block md:col-span-2">
+                <span className="text-sm font-semibold text-neutral-700">Description</span>
+                <textarea className={`${input} mt-2 h-28 py-3`} value={shopForm.description} onChange={(event) => setShopForm((form) => ({ ...form, description: event.target.value }))} />
+              </label>
+              <label className="block md:col-span-2">
+                <span className="text-sm font-semibold text-neutral-700">Store news</span>
+                <textarea className={`${input} mt-2 h-28 py-3`} value={shopForm.store_news} onChange={(event) => setShopForm((form) => ({ ...form, store_news: event.target.value }))} />
+              </label>
+            </div>
+            <button className={`${redButton} mt-5`} onClick={submitShopProfile}>Save shop profile</button>
           </section>
         </>
       ) : null}
