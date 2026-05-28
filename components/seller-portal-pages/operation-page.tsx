@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import {
   createSellerWalletAddress,
   getDepositPaymentMethods,
@@ -105,6 +106,19 @@ function maskEmail(email: string) {
 
 function objectValue(value: unknown): RecordMap {
   return isRecord(value) ? value : {};
+}
+
+function paymentConfig(method: RecordMap): RecordMap {
+  const config = method.config;
+  if (typeof config === "string") {
+    try {
+      const parsed = JSON.parse(config);
+      return isRecord(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return objectValue(config);
 }
 
 function PageHeader({ title, onRefresh }: { title: string; onRefresh?: () => void }) {
@@ -254,6 +268,12 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
   const wallet = objectValue(data.wallet);
   const walletCurrency = formatValue(wallet.currency, "$");
   const records = data.records;
+  const selectedFundsMethod = rows(data.methods).find((method) => Number(method.id) === Number(fundsForm.methodId));
+  const selectedFundsConfig = selectedFundsMethod ? paymentConfig(selectedFundsMethod) : {};
+  const selectedFundsAddress = formatValue(selectedFundsConfig.address, "");
+  const selectedFundsNetwork = formatValue(selectedFundsConfig.network, "");
+  const selectedFundsQr = resolveBackendAssetUrl(formatValue(selectedFundsConfig.qr_code_url || selectedFundsConfig.qr_code_path, ""));
+  const selectedFundsInstructions = formatValue(selectedFundsConfig.instructions || selectedFundsConfig.note, "");
   const tabOptions = [
     { key: "all", label: "All" },
     { key: "pending", label: "Under review" },
@@ -600,6 +620,44 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
                   <option key={formatValue(method.id)} value={formatValue(method.id)}>{formatValue(method.name, "Payment method")}</option>
                 ))}
               </select>
+              {selectedFundsMethod ? (
+                <div className="border border-neutral-200 bg-neutral-50 p-4">
+                  <div className="text-sm font-bold text-neutral-900">{formatValue(selectedFundsMethod.name, "Recharge method")}</div>
+                  {selectedFundsInstructions ? <div className="mt-2 whitespace-pre-line text-sm text-neutral-600">{selectedFundsInstructions}</div> : null}
+                  {selectedFundsQr ? (
+                    <div className="mt-4 flex justify-center">
+                      <Image
+                        src={selectedFundsQr}
+                        alt="Recharge QR code"
+                        width={176}
+                        height={176}
+                        unoptimized
+                        className="h-44 w-44 border border-neutral-200 bg-white object-contain p-2"
+                      />
+                    </div>
+                  ) : null}
+                  {(selectedFundsAddress || selectedFundsNetwork) ? (
+                    <div className="mt-4 space-y-2 text-sm">
+                      {selectedFundsNetwork ? <div className="text-neutral-600">Network: <span className="font-semibold text-neutral-900">{selectedFundsNetwork}</span></div> : null}
+                      {selectedFundsAddress ? (
+                        <div>
+                          <div className="text-neutral-600">Wallet address</div>
+                          <div className="mt-1 break-all bg-white p-3 font-mono text-xs text-neutral-900">{selectedFundsAddress}</div>
+                          <button
+                            type="button"
+                            className="mt-2 text-sm font-semibold text-red-600"
+                            onClick={() => navigator.clipboard?.writeText(selectedFundsAddress)}
+                          >
+                            Copy Wallet Address
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="mt-3 text-sm text-neutral-500">No wallet address has been configured for this method yet.</div>
+                  )}
+                </div>
+              ) : null}
               <input className={`${input} h-14 text-lg`} value={fundsForm.reference} onChange={(event) => setFundsForm((form) => ({ ...form, reference: event.target.value }))} placeholder="Reference / transaction ID" />
               <input className="block w-full border border-neutral-300 bg-white px-3 py-3 text-sm" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setFundsForm((form) => ({ ...form, proof: event.target.files?.[0] ?? null }))} />
               <textarea className={`${input} h-24 py-3 text-lg`} value={fundsForm.notes} onChange={(event) => setFundsForm((form) => ({ ...form, notes: event.target.value }))} placeholder="Notes" />

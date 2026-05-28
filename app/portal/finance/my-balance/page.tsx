@@ -9,6 +9,7 @@ import {
   requestWalletTopup,
   requestWalletWithdrawal,
 } from "@/lib/api-client";
+import { resolveBackendAssetUrl } from "@/lib/utils";
 
 type DepositAccount = {
   label?: string;
@@ -32,7 +33,11 @@ type DepositMethodConfig = {
   account_name?: string;
   account_number?: string;
   currency?: string;
+  qr_code_path?: string;
+  qr_code_url?: string;
 };
+
+const SUPPORT_EMAIL = "shopeecustomerservice58@gmail.com";
 
 type DepositMethod = {
   id: number;
@@ -187,6 +192,9 @@ export default function MyBalancePage() {
   }, [selectedConfig]);
 
   const methodInstructions = selectedConfig?.instructions || selectedConfig?.note || "";
+  const methodQrCode = resolveBackendAssetUrl(selectedConfig?.qr_code_url || selectedConfig?.qr_code_path);
+  const methodAddress = selectedConfig?.address || methodAccounts.find((account) => account.address)?.address || "";
+  const methodNetwork = selectedConfig?.network || methodAccounts.find((account) => account.network)?.network || "";
 
   const canSubmitTopup =
     !!topupAmount &&
@@ -388,7 +396,37 @@ export default function MyBalancePage() {
                     <div className="text-sm text-gray-600 whitespace-pre-line">{methodInstructions}</div>
                   ) : (
                     <div className="text-sm text-gray-500">
-                      Use the details below to complete payment. Contact support if you need help.
+                      Use the details below to complete payment. Contact {SUPPORT_EMAIL} if you need help.
+                    </div>
+                  )}
+                  {methodQrCode && (
+                    <div className="flex justify-center">
+                      <Image
+                        src={methodQrCode}
+                        alt="Recharge QR code"
+                        width={176}
+                        height={176}
+                        unoptimized
+                        className="h-44 w-44 rounded border border-gray-200 bg-white object-contain p-2"
+                      />
+                    </div>
+                  )}
+                  {(methodAddress || methodNetwork) && (
+                    <div className="rounded border border-gray-200 bg-white p-3 text-sm">
+                      {methodNetwork && <div className="text-gray-500">Network: <span className="font-medium text-gray-800">{methodNetwork}</span></div>}
+                      {methodAddress && (
+                        <>
+                          <div className="mt-2 text-gray-500">Wallet address</div>
+                          <div className="mt-1 break-all rounded bg-gray-50 p-2 font-mono text-xs text-gray-800">{methodAddress}</div>
+                          <button
+                            type="button"
+                            onClick={() => navigator.clipboard?.writeText(methodAddress)}
+                            className="mt-2 text-xs font-semibold text-orange-600"
+                          >
+                            Copy Wallet Address
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
                   {methodAccounts.length > 0 ? (

@@ -309,12 +309,9 @@ export default function SellerOrdersPage() {
                         </>
                       )}
                       {order.status === "SHIPPED" && (
-                        <button
-                          onClick={() => handleStatusUpdate(order.id, { status: "DELIVERED" })}
-                          className="h-8 px-3 border border-gray-200 text-xs hover:bg-gray-50"
-                        >
-                          Mark Delivered
-                        </button>
+                        <span className="rounded border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
+                          Awaiting buyer receipt confirmation
+                        </span>
                       )}
                       {order.tracking_number && (
                         <span className="text-xs text-gray-500">Tracking: {order.tracking_number}</span>

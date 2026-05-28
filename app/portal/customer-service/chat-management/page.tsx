@@ -23,6 +23,8 @@ type ChatMessage = {
   timestamp: string;
 };
 
+const SUPPORT_EMAIL = "shopeecustomerservice58@gmail.com";
+
 export default function ChatManagementPage() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -194,6 +196,9 @@ export default function ChatManagementPage() {
       <div>
         <div className="text-sm text-gray-500">Customer Service</div>
         <h1 className="text-xl font-semibold text-gray-900">Chat Management</h1>
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="mt-1 inline-block text-sm font-medium text-orange-600">
+          {SUPPORT_EMAIL}
+        </a>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg p-4">

@@ -8,6 +8,8 @@ import { useAuth } from "@/components/auth-provider";
 import { logoutApi } from "@/lib/api-client";
 import { getBuyerLoginUrl, isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
 
+const SUPPORT_EMAIL = "shopeecustomerservice58@gmail.com";
+
 export default function PortalTopbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { user } = useAuth();
   const router = useRouter();
@@ -63,7 +65,7 @@ export default function PortalTopbar({ onOpenMenu }: { onOpenMenu: () => void })
           <button
             type="button"
             className="text-gray-500 hover:text-gray-700 flex-shrink-0"
-            title="Help"
+            title={`Help: ${SUPPORT_EMAIL}`}
             onClick={() => router.push("/portal/my-message?support=1")}
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
