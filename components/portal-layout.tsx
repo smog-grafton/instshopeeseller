@@ -65,8 +65,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex relative">
+    <div className="min-h-screen max-w-full overflow-x-hidden bg-gray-50">
+      <div className="relative flex min-w-0 max-w-full overflow-x-hidden">
         {!isDesktop && mobileMenuOpen && (
           <button
             type="button"
@@ -81,9 +81,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           onCloseMobile={closeMobileMenu}
           onToggleCollapse={toggleDesktopCollapse}
         />
-        <div className="flex-1 min-w-0 relative">
+        <div className="relative min-w-0 flex-1 overflow-x-hidden">
           <PortalTopbar onOpenMenu={openMobileMenu} />
-          <main className="p-4 sm:p-6 pr-4 sm:pr-20">{children}</main>
+          <main className="max-w-full overflow-x-hidden p-4 pr-4 sm:p-6 sm:pr-20">{children}</main>
           <PortalRightbar />
         </div>
       </div>

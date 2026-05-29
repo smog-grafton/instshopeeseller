@@ -4,7 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { getBuyerLoginUrl } from "@/lib/utils";
-import { resolveSellerPortalRoute } from "@/lib/portal-access";
+import { rememberMerchantApplicationEntry, resolveSellerPortalRoute } from "@/lib/portal-access";
 
 /**
  * Ensures only authenticated users see seller portal routes. Unauthenticated
@@ -24,7 +24,9 @@ export function PortalAuthGuard({ children }: { children: ReactNode }) {
       return;
     }
 
-    const redirect = resolveSellerPortalRoute(user, pathname);
+    const search = typeof window !== "undefined" ? window.location.search : "";
+    const allowMerchantApplication = rememberMerchantApplicationEntry(search);
+    const redirect = resolveSellerPortalRoute(user, pathname, allowMerchantApplication);
 
     if (!redirect) {
       return;
@@ -62,7 +64,7 @@ export function PortalAuthGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  if (resolveSellerPortalRoute(user, pathname)) {
+  if (resolveSellerPortalRoute(user, pathname, rememberMerchantApplicationEntry(typeof window !== "undefined" ? window.location.search : ""))) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">

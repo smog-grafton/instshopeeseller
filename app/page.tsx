@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { getBuyerLoginUrl } from "@/lib/utils";
-import { resolveSellerPortalEntry } from "@/lib/portal-access";
+import { rememberMerchantApplicationEntry, resolveSellerPortalEntry } from "@/lib/portal-access";
 
 export default function HomePage() {
   const { user, isLoading } = useAuth();
@@ -17,6 +17,12 @@ export default function HomePage() {
       // Not logged in - redirect to buyer site login
       const nextUrl = window.location.href;
       window.location.href = getBuyerLoginUrl(nextUrl);
+      return;
+    }
+
+    const search = typeof window !== "undefined" ? window.location.search : "";
+    if (rememberMerchantApplicationEntry(search)) {
+      router.replace("/portal/my-onboarding");
       return;
     }
 

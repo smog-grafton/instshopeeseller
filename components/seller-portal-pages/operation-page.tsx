@@ -181,6 +181,9 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
   const [status, setStatus] = useState("all");
   const [walletModal, setWalletModal] = useState(false);
   const [fundsModal, setFundsModal] = useState(false);
+  const [fundsStep, setFundsStep] = useState<"details" | "proof">("details");
+  const [copiedAddress, setCopiedAddress] = useState(false);
+  const [submittingFunds, setSubmittingFunds] = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [walletForm, setWalletForm] = useState({ currency: "USDT", network: "ERC-20", address: "" });
   const [fundsForm, setFundsForm] = useState({ amount: "", methodId: "", reference: "", notes: "", proof: null as File | null });
@@ -380,17 +383,49 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
       setNotice("Enter an amount and select a payment method.");
       return;
     }
-    await requestWalletTopup({
-      amount,
-      payment_method_id: methodId,
-      reference: fundsForm.reference || undefined,
-      notes: fundsForm.notes || undefined,
-      proof: fundsForm.proof,
-    });
-    setFundsForm({ amount: "", methodId: "", reference: "", notes: "", proof: null });
-    setFundsModal(false);
-    setNotice("Top-up request submitted.");
-    await load();
+    setSubmittingFunds(true);
+    try {
+      await requestWalletTopup({
+        amount,
+        payment_method_id: methodId,
+        reference: fundsForm.reference || undefined,
+        notes: fundsForm.notes || undefined,
+        proof: fundsForm.proof,
+      });
+      setFundsForm({ amount: "", methodId: "", reference: "", notes: "", proof: null });
+      setFundsStep("details");
+      setFundsModal(false);
+      setNotice("Top-up request submitted.");
+      await load();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Top-up request failed.");
+    } finally {
+      setSubmittingFunds(false);
+    }
+  };
+
+  const copyWalletAddress = async () => {
+    if (!selectedFundsAddress) return;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(selectedFundsAddress);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = selectedFundsAddress;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        textarea.remove();
+      }
+      setCopiedAddress(true);
+      window.setTimeout(() => setCopiedAddress(false), 1800);
+    } catch {
+      setNotice("Copy failed. Please select and copy the address manually.");
+    }
   };
 
   return (
@@ -673,65 +708,95 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
       ) : null}
 
       {fundsModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-xl bg-white p-8 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-neutral-200 pb-5">
-              <h2 className="text-3xl font-bold text-black">Add funds</h2>
-              <button className="text-4xl leading-none" onClick={() => setFundsModal(false)}>×</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/45 p-3 sm:p-4">
+          <div className="flex max-h-[92svh] w-full max-w-2xl flex-col overflow-hidden bg-white shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-neutral-200 px-5 py-4 sm:px-6">
+              <h2 className="text-2xl font-bold text-black sm:text-3xl">Add funds</h2>
+              <button className="h-10 w-10 text-3xl leading-none" onClick={() => setFundsModal(false)} aria-label="Close">×</button>
             </div>
-            <div className="mt-6 grid gap-4">
-              <input className={`${input} h-14 text-lg`} type="number" min="10" step="0.01" value={fundsForm.amount} onChange={(event) => setFundsForm((form) => ({ ...form, amount: event.target.value }))} placeholder="Amount" />
-              <select className={`${input} h-14 text-lg`} value={fundsForm.methodId} onChange={(event) => setFundsForm((form) => ({ ...form, methodId: event.target.value }))}>
-                <option value="">Select payment method</option>
-                {rows(data.methods).map((method) => (
-                  <option key={formatValue(method.id)} value={formatValue(method.id)}>{formatValue(method.name, "Payment method")}</option>
-                ))}
-              </select>
-              {selectedFundsMethod ? (
-                <div className="border border-neutral-200 bg-neutral-50 p-4">
-                  <div className="text-sm font-bold text-neutral-900">{formatValue(selectedFundsMethod.name, "Recharge method")}</div>
-                  {selectedFundsInstructions ? <div className="mt-2 whitespace-pre-line text-sm text-neutral-600">{selectedFundsInstructions}</div> : null}
-                  {selectedFundsQr ? (
-                    <div className="mt-4 flex justify-center">
-                      <Image
-                        src={selectedFundsQr}
-                        alt="Recharge QR code"
-                        width={176}
-                        height={176}
-                        unoptimized
-                        className="h-44 w-44 border border-neutral-200 bg-white object-contain p-2"
-                      />
-                    </div>
-                  ) : null}
-                  {(selectedFundsAddress || selectedFundsNetwork) ? (
-                    <div className="mt-4 space-y-2 text-sm">
-                      {selectedFundsNetwork ? <div className="text-neutral-600">Network: <span className="font-semibold text-neutral-900">{selectedFundsNetwork}</span></div> : null}
-                      {selectedFundsAddress ? (
-                        <div>
-                          <div className="text-neutral-600">Wallet address</div>
-                          <div className="mt-1 break-all bg-white p-3 font-mono text-xs text-neutral-900">{selectedFundsAddress}</div>
-                          <button
-                            type="button"
-                            className="mt-2 text-sm font-semibold text-red-600"
-                            onClick={() => navigator.clipboard?.writeText(selectedFundsAddress)}
-                          >
-                            Copy Wallet Address
-                          </button>
+
+            <div className="shrink-0 border-b border-neutral-100 px-5 pt-4 sm:px-6">
+              <div className="grid grid-cols-2 gap-2 rounded-sm bg-neutral-100 p-1 text-sm font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setFundsStep("details")}
+                  className={`h-10 ${fundsStep === "details" ? "bg-white text-red-600 shadow-sm" : "text-neutral-600"}`}
+                >
+                  Details
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFundsStep("proof")}
+                  className={`h-10 ${fundsStep === "proof" ? "bg-white text-red-600 shadow-sm" : "text-neutral-600"}`}
+                >
+                  Proof
+                </button>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+              {fundsStep === "details" ? (
+                <div className="grid gap-4">
+                  <input className={`${input} h-12 text-base sm:h-14 sm:text-lg`} type="number" min="10" step="0.01" value={fundsForm.amount} onChange={(event) => setFundsForm((form) => ({ ...form, amount: event.target.value }))} placeholder="Amount" />
+                  <select className={`${input} h-12 text-base sm:h-14 sm:text-lg`} value={fundsForm.methodId} onChange={(event) => setFundsForm((form) => ({ ...form, methodId: event.target.value }))}>
+                    <option value="">Select payment method</option>
+                    {rows(data.methods).map((method) => (
+                      <option key={formatValue(method.id)} value={formatValue(method.id)}>{formatValue(method.name, "Payment method")}</option>
+                    ))}
+                  </select>
+                  {selectedFundsMethod ? (
+                    <div className="border border-neutral-200 bg-neutral-50 p-4">
+                      <div className="text-sm font-bold text-neutral-900">{formatValue(selectedFundsMethod.name, "Recharge method")}</div>
+                      {selectedFundsInstructions ? <div className="mt-2 whitespace-pre-line text-sm leading-6 text-neutral-600">{selectedFundsInstructions}</div> : null}
+                      {selectedFundsQr ? (
+                        <div className="mt-4 flex justify-center">
+                          <Image
+                            src={selectedFundsQr}
+                            alt="Recharge QR code"
+                            width={160}
+                            height={160}
+                            unoptimized
+                            className="h-40 w-40 border border-neutral-200 bg-white object-contain p-2"
+                          />
                         </div>
                       ) : null}
+                      {(selectedFundsAddress || selectedFundsNetwork) ? (
+                        <div className="mt-4 space-y-2 text-sm">
+                          {selectedFundsNetwork ? <div className="text-neutral-600">Network: <span className="font-semibold text-neutral-900">{selectedFundsNetwork}</span></div> : null}
+                          {selectedFundsAddress ? (
+                            <div>
+                              <div className="text-neutral-600">Wallet address</div>
+                              <div className="mt-1 max-w-full break-all bg-white p-3 font-mono text-xs text-neutral-900">{selectedFundsAddress}</div>
+                              <button
+                                type="button"
+                                className="mt-2 text-sm font-semibold text-red-600"
+                                onClick={copyWalletAddress}
+                              >
+                                {copiedAddress ? "Copied" : "Copy Wallet Address"}
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div className="mt-3 text-sm text-neutral-500">No wallet address has been configured for this method yet.</div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="mt-3 text-sm text-neutral-500">No wallet address has been configured for this method yet.</div>
-                  )}
+                  ) : null}
                 </div>
-              ) : null}
-              <input className={`${input} h-14 text-lg`} value={fundsForm.reference} onChange={(event) => setFundsForm((form) => ({ ...form, reference: event.target.value }))} placeholder="Reference / transaction ID" />
-              <input className="block w-full border border-neutral-300 bg-white px-3 py-3 text-sm" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setFundsForm((form) => ({ ...form, proof: event.target.files?.[0] ?? null }))} />
-              <textarea className={`${input} h-24 py-3 text-lg`} value={fundsForm.notes} onChange={(event) => setFundsForm((form) => ({ ...form, notes: event.target.value }))} placeholder="Notes" />
+              ) : (
+                <div className="grid gap-4">
+                  <input className={`${input} h-12 text-base sm:h-14 sm:text-lg`} value={fundsForm.reference} onChange={(event) => setFundsForm((form) => ({ ...form, reference: event.target.value }))} placeholder="Reference / transaction ID" />
+                  <input className="block w-full border border-neutral-300 bg-white px-3 py-3 text-sm" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setFundsForm((form) => ({ ...form, proof: event.target.files?.[0] ?? null }))} />
+                  <textarea className={`${input} h-24 py-3 text-base sm:text-lg`} value={fundsForm.notes} onChange={(event) => setFundsForm((form) => ({ ...form, notes: event.target.value }))} placeholder="Notes" />
+                </div>
+              )}
             </div>
-            <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              <button className={`${lightButton} h-14 w-full text-xl`} onClick={() => setFundsModal(false)}>Cancel</button>
-              <button className={`${redButton} h-14 w-full text-xl`} onClick={submitFunds}>Submit</button>
+
+            <div className="grid shrink-0 gap-3 border-t border-neutral-100 px-5 py-4 sm:grid-cols-2 sm:px-6">
+              <button className={`${lightButton} h-12 w-full text-base sm:h-14 sm:text-xl`} onClick={() => setFundsModal(false)}>Cancel</button>
+              <button className={`${redButton} h-12 w-full text-base sm:h-14 sm:text-xl`} onClick={submitFunds} disabled={submittingFunds}>
+                {submittingFunds ? "Submitting..." : "Submit"}
+              </button>
             </div>
           </div>
         </div>

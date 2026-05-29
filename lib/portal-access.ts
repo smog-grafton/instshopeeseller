@@ -21,6 +21,25 @@ function isOnboardingPath(pathname: string): boolean {
   return pathname === "/portal/my-onboarding" || pathname.startsWith("/portal/my-onboarding/");
 }
 
+export function hasMerchantApplicationEntry(search = ""): boolean {
+  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+
+  return params.get("entry") === "merchant-application";
+}
+
+export function rememberMerchantApplicationEntry(search = ""): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  if (hasMerchantApplicationEntry(search)) {
+    window.sessionStorage.setItem("merchant_application_entry", "1");
+    return true;
+  }
+
+  return window.sessionStorage.getItem("merchant_application_entry") === "1";
+}
+
 function isDashboardPath(pathname: string): boolean {
   return pathname === "/portal/my-account" || pathname === "/portal/dashboard";
 }
@@ -67,10 +86,14 @@ export function resolveSellerPortalEntry(user?: ApiUser | null): SellerPortalRed
   return { type: "internal", href: "/portal/my-onboarding" };
 }
 
-export function resolveSellerPortalRoute(user: ApiUser, pathname: string): SellerPortalRedirect | null {
+export function resolveSellerPortalRoute(user: ApiUser, pathname: string, allowMerchantApplication = false): SellerPortalRedirect | null {
   const state = resolveSellerPortalAccessState(user);
 
   if (state === "buyer") {
+    if (allowMerchantApplication && isOnboardingPath(pathname)) {
+      return null;
+    }
+
     return { type: "external", href: buildBuyerAccountUrl() };
   }
 
