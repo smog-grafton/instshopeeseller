@@ -377,14 +377,14 @@ export default function OnboardingFormPage() {
 
       {/* Main Content */}
       <main className="min-h-[580px] pb-16 bg-gray-50">
-        <div className="max-w-[1232px] mx-auto px-4 py-8">
-          <div className="flex gap-4">
+        <div className="max-w-[1232px] mx-auto px-3 py-4 sm:px-4 sm:py-8">
+          <div className="flex min-w-0 flex-col gap-4 xl:flex-row">
             {/* Form Card */}
-            <div className="flex-1 bg-white rounded shadow-sm">
+            <div className="min-w-0 flex-1 bg-white rounded shadow-sm">
               {/* Progress Stepper */}
-              <div className="border-b border-gray-200 mx-6">
+              <div className="mx-3 overflow-x-auto border-b border-gray-200 sm:mx-6">
                   <div className="flex justify-center items-center my-12">
-                  <div className="flex items-center w-full max-w-[944px] min-w-[944px]">
+                  <div className="flex w-full min-w-[680px] items-center sm:max-w-[944px] lg:min-w-0">
                     {/* Step 1 - Shop Information */}
                     <div className="flex-1 flex flex-col items-center relative">
                       <div className={`w-2.5 h-2.5 rounded-full mb-3 flex-shrink-0 ${stepId === STEP_IDS.step1 ? "bg-orange-600" : "bg-gray-300"}`}></div>
@@ -884,20 +884,20 @@ export default function OnboardingFormPage() {
               </div>
 
               {/* Footer Buttons */}
-              <div className="border-t border-gray-200 px-6 py-6 flex justify-between gap-2">
+              <div className="sticky bottom-0 z-20 flex flex-col gap-3 border-t border-gray-200 bg-white px-4 py-4 shadow-[0_-10px_24px_rgba(15,23,42,0.08)] sm:flex-row sm:justify-between sm:px-6 sm:py-5">
                 <div>
                   {(stepId === STEP_IDS.step2 || stepId === STEP_IDS.step3 || stepId === STEP_IDS.step4) && (
                     <button
                       type="button"
                       onClick={handleBack}
                       disabled={saving}
-                      className="h-10 px-4 border border-gray-200 bg-white text-gray-700 rounded text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+                      className="h-10 w-full px-4 border border-gray-200 bg-white text-gray-700 rounded text-sm font-medium hover:bg-gray-50 disabled:opacity-50 sm:w-auto"
                     >
                       Back
                     </button>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col-reverse gap-2 sm:flex-row">
                   {stepId !== STEP_IDS.step4 && (
                     <>
                       {stepId === STEP_IDS.step1 && (
@@ -905,7 +905,7 @@ export default function OnboardingFormPage() {
                           type="button"
                           onClick={handleSave}
                           disabled={saving}
-                          className="h-10 px-4 mr-2 border border-gray-200 bg-white text-gray-700 rounded text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+                          className="h-10 w-full px-4 border border-gray-200 bg-white text-gray-700 rounded text-sm font-medium hover:bg-gray-50 disabled:opacity-50 sm:w-auto"
                         >
                           {saving ? "Saving..." : "Save"}
                         </button>
@@ -914,7 +914,7 @@ export default function OnboardingFormPage() {
                         type="button"
                         onClick={handleNext}
                         disabled={saving}
-                        className="h-10 px-4 bg-orange-600 text-white rounded text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+                        className="h-10 w-full px-4 bg-orange-600 text-white rounded text-sm font-medium hover:bg-orange-700 disabled:opacity-50 sm:w-auto"
                       >
                         {saving ? "Saving..." : "Next"}
                       </button>
@@ -925,7 +925,7 @@ export default function OnboardingFormPage() {
                       type="button"
                       onClick={handleSubmitApplication}
                       disabled={saving}
-                      className="h-10 px-4 bg-orange-600 text-white rounded text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+                      className="h-10 w-full px-4 bg-orange-600 text-white rounded text-sm font-medium hover:bg-orange-700 disabled:opacity-50 sm:w-auto"
                     >
                       {saving ? "Submitting..." : "Submit application"}
                     </button>

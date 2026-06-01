@@ -64,6 +64,15 @@ type WalletSummary = {
   pending_balance?: string;
 };
 
+type WithdrawalMethod = "bank" | "crypto" | "binance" | "mobile_money";
+
+const withdrawalMethods: Array<{ value: WithdrawalMethod; label: string; note: string }> = [
+  { value: "bank", label: "Bank account", note: "Use a saved bank account or enter payout details manually." },
+  { value: "crypto", label: "Crypto wallet", note: "Send payout to a wallet address and network." },
+  { value: "binance", label: "Binance ID", note: "Use your Binance account ID." },
+  { value: "mobile_money", label: "Mobile money", note: "Use a provider and registered mobile money number." },
+];
+
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message) {
     return error.message;
@@ -98,13 +107,22 @@ export default function MyBalancePage() {
   const [topupProof, setTopupProof] = useState<File | null>(null);
   const [topupPreview, setTopupPreview] = useState<string | null>(null);
   const [topupLoading, setTopupLoading] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState(false);
 
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawMethod, setWithdrawMethod] = useState<WithdrawalMethod>("bank");
   const [withdrawBankId, setWithdrawBankId] = useState<number | "manual" | "">("");
   const [withdrawBankName, setWithdrawBankName] = useState("");
   const [withdrawAccountName, setWithdrawAccountName] = useState("");
   const [withdrawAccountNumber, setWithdrawAccountNumber] = useState("");
+  const [withdrawCryptoNetwork, setWithdrawCryptoNetwork] = useState("");
+  const [withdrawCryptoAddress, setWithdrawCryptoAddress] = useState("");
+  const [withdrawBinanceId, setWithdrawBinanceId] = useState("");
+  const [withdrawMobileProvider, setWithdrawMobileProvider] = useState("");
+  const [withdrawMobileNumber, setWithdrawMobileNumber] = useState("");
+  const [withdrawPhoneNumber, setWithdrawPhoneNumber] = useState("");
+  const [withdrawConfirmed, setWithdrawConfirmed] = useState(false);
   const [withdrawNotes, setWithdrawNotes] = useState("");
   const [withdrawLoading, setWithdrawLoading] = useState(false);
 
@@ -151,16 +169,25 @@ export default function MyBalancePage() {
       setTopupNotes("");
       setTopupProof(null);
       setTopupPreview(null);
+      setCopiedAddress(false);
     }
   }, [showTopup]);
 
   useEffect(() => {
     if (!showWithdraw) {
       setWithdrawAmount("");
+      setWithdrawMethod("bank");
       setWithdrawBankId("");
       setWithdrawBankName("");
       setWithdrawAccountName("");
       setWithdrawAccountNumber("");
+      setWithdrawCryptoNetwork("");
+      setWithdrawCryptoAddress("");
+      setWithdrawBinanceId("");
+      setWithdrawMobileProvider("");
+      setWithdrawMobileNumber("");
+      setWithdrawPhoneNumber("");
+      setWithdrawConfirmed(false);
       setWithdrawNotes("");
     }
   }, [showWithdraw]);
@@ -206,7 +233,16 @@ export default function MyBalancePage() {
   const canSubmitWithdraw =
     !!withdrawAmount &&
     Number(withdrawAmount) >= 10 &&
-    (!!withdrawBankId || (!!withdrawBankName && !!withdrawAccountName && !!withdrawAccountNumber)) &&
+    withdrawConfirmed &&
+    (
+      withdrawMethod === "bank"
+        ? (!!withdrawBankId || (!!withdrawBankName && !!withdrawAccountName && !!withdrawAccountNumber))
+        : withdrawMethod === "crypto"
+          ? !!withdrawCryptoNetwork && !!withdrawCryptoAddress
+          : withdrawMethod === "binance"
+            ? !!withdrawBinanceId
+            : !!withdrawMobileProvider && !!withdrawMobileNumber
+    ) &&
     !withdrawLoading;
 
   const onTopup = async () => {
@@ -230,25 +266,44 @@ export default function MyBalancePage() {
     }
   };
 
+  const copyWalletAddress = async (value: string) => {
+    try {
+      await navigator.clipboard?.writeText(value);
+      setCopiedAddress(true);
+      window.setTimeout(() => setCopiedAddress(false), 1800);
+    } catch {
+      setCopiedAddress(false);
+    }
+  };
+
   const onWithdraw = async () => {
     if (!canSubmitWithdraw) return;
     setWithdrawLoading(true);
     try {
       const payload: Parameters<typeof requestWalletWithdrawal>[0] = {
         amount: Number(withdrawAmount),
+        method: withdrawMethod,
         notes: withdrawNotes || undefined,
+        crypto_network: withdrawCryptoNetwork || undefined,
+        crypto_address: withdrawCryptoAddress || undefined,
+        binance_id: withdrawBinanceId || undefined,
+        mobile_money_provider: withdrawMobileProvider || undefined,
+        mobile_money_number: withdrawMobileNumber || undefined,
+        phone_number: withdrawPhoneNumber || undefined,
       };
 
-      if (withdrawBankId && withdrawBankId !== "manual") {
-        payload.bank_account_id = Number(withdrawBankId);
-      } else {
-        payload.bank_name = withdrawBankName;
-        payload.bank_account_name = withdrawAccountName;
-        payload.bank_account_number = withdrawAccountNumber;
+      if (withdrawMethod === "bank") {
+        if (withdrawBankId && withdrawBankId !== "manual") {
+          payload.bank_account_id = Number(withdrawBankId);
+        } else {
+          payload.bank_name = withdrawBankName;
+          payload.bank_account_name = withdrawAccountName;
+          payload.bank_account_number = withdrawAccountNumber;
+        }
       }
 
       await requestWalletWithdrawal(payload);
-      alert("Withdrawal request submitted. Please wait for processing.");
+      alert("Withdrawal request submitted. Processing can take up to 7 business days.");
       setShowWithdraw(false);
       loadWallet();
     } catch (error: unknown) {
@@ -321,7 +376,7 @@ export default function MyBalancePage() {
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <div className="text-sm font-semibold text-gray-800 mb-3">Withdraw</div>
               <p className="text-xs text-gray-500 mb-4">
-                Send a withdrawal request to your preferred bank account.
+                Send a withdrawal request to bank, crypto, Binance, or mobile money. Processing can take up to 7 business days.
               </p>
               <button
                 onClick={() => setShowWithdraw(true)}
@@ -420,10 +475,10 @@ export default function MyBalancePage() {
                           <div className="mt-1 break-all rounded bg-gray-50 p-2 font-mono text-xs text-gray-800">{methodAddress}</div>
                           <button
                             type="button"
-                            onClick={() => navigator.clipboard?.writeText(methodAddress)}
+                            onClick={() => copyWalletAddress(methodAddress)}
                             className="mt-2 text-xs font-semibold text-orange-600"
                           >
-                            Copy Wallet Address
+                            {copiedAddress ? "Copied" : "Copy Wallet Address"}
                           </button>
                         </>
                       )}
@@ -527,6 +582,10 @@ export default function MyBalancePage() {
                 </button>
               </div>
               <div className="min-h-0 overflow-y-auto p-5 space-y-4">
+                <div className="rounded-lg border border-orange-100 bg-orange-50 p-3 text-xs leading-5 text-orange-800">
+                  Withdrawal requests are reviewed by the finance team and can take up to 7 business days.
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs text-gray-500">Amount</label>
@@ -539,64 +598,168 @@ export default function MyBalancePage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500">Use saved bank account</label>
-                    <select
-                      value={withdrawBankId === "" ? "" : String(withdrawBankId)}
-                      onChange={(e) => onSelectBank(e.target.value)}
-                      className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
-                    >
-                      <option value="">Select account</option>
-                      {accounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.bank_name} • {account.account_number}
-                        </option>
-                      ))}
-                      <option value="manual">Enter manually</option>
-                    </select>
-                  </div>
-                </div>
-
-              {(withdrawBankId === "manual" || accounts.length === 0 || withdrawBankId === "") && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-gray-500">Bank name</label>
+                    <label className="text-xs text-gray-500">Contact phone (optional)</label>
                     <input
-                      value={withdrawBankName}
-                      onChange={(e) => setWithdrawBankName(e.target.value)}
-                      placeholder="Bank name"
-                      className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500">Account holder name</label>
-                    <input
-                      value={withdrawAccountName}
-                      onChange={(e) => setWithdrawAccountName(e.target.value)}
-                      placeholder="Account holder name"
-                      className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="text-xs text-gray-500">Account number</label>
-                    <input
-                      value={withdrawAccountNumber}
-                      onChange={(e) => setWithdrawAccountNumber(e.target.value)}
-                      placeholder="Account number"
+                      value={withdrawPhoneNumber}
+                      onChange={(e) => setWithdrawPhoneNumber(e.target.value)}
+                      placeholder="Phone number"
                       className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
                     />
                   </div>
                 </div>
-              )}
 
-              <div>
-                <label className="text-xs text-gray-500">Notes (optional)</label>
-                <textarea
-                  value={withdrawNotes}
-                  onChange={(e) => setWithdrawNotes(e.target.value)}
-                  rows={3}
-                  className="mt-2 w-full border border-gray-200 rounded p-2 text-sm"
-                />
-              </div>
+                <div>
+                  <div className="mb-2 text-xs text-gray-500">Payout method</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {withdrawalMethods.map((item) => (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => setWithdrawMethod(item.value)}
+                        className={`rounded-lg border p-3 text-left text-sm ${
+                          withdrawMethod === item.value
+                            ? "border-orange-500 bg-orange-50 text-orange-700"
+                            : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        <span className="font-semibold">{item.label}</span>
+                        <span className="mt-1 block text-xs leading-5 text-gray-500">{item.note}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {withdrawMethod === "bank" && (
+                  <>
+                    <div>
+                      <label className="text-xs text-gray-500">Use saved bank account</label>
+                      <select
+                        value={withdrawBankId === "" ? "" : String(withdrawBankId)}
+                        onChange={(e) => onSelectBank(e.target.value)}
+                        className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                      >
+                        <option value="">Select account</option>
+                        {accounts.map((account) => (
+                          <option key={account.id} value={account.id}>
+                            {account.bank_name} - {account.account_number}
+                          </option>
+                        ))}
+                        <option value="manual">Enter manually</option>
+                      </select>
+                    </div>
+
+                    {(withdrawBankId === "manual" || accounts.length === 0 || withdrawBankId === "") && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs text-gray-500">Bank name</label>
+                          <input
+                            value={withdrawBankName}
+                            onChange={(e) => setWithdrawBankName(e.target.value)}
+                            placeholder="Bank name"
+                            className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500">Account holder name</label>
+                          <input
+                            value={withdrawAccountName}
+                            onChange={(e) => setWithdrawAccountName(e.target.value)}
+                            placeholder="Account holder name"
+                            className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="text-xs text-gray-500">Account number</label>
+                          <input
+                            value={withdrawAccountNumber}
+                            onChange={(e) => setWithdrawAccountNumber(e.target.value)}
+                            placeholder="Account number"
+                            className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {withdrawMethod === "crypto" && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs text-gray-500">Network</label>
+                      <input
+                        value={withdrawCryptoNetwork}
+                        onChange={(e) => setWithdrawCryptoNetwork(e.target.value)}
+                        placeholder="USDT TRC20, BTC, ERC20"
+                        className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="text-xs text-gray-500">Wallet address</label>
+                      <textarea
+                        value={withdrawCryptoAddress}
+                        onChange={(e) => setWithdrawCryptoAddress(e.target.value)}
+                        rows={3}
+                        placeholder="Paste wallet address"
+                        className="mt-2 w-full border border-gray-200 rounded p-2 text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {withdrawMethod === "binance" && (
+                  <div>
+                    <label className="text-xs text-gray-500">Binance ID</label>
+                    <input
+                      value={withdrawBinanceId}
+                      onChange={(e) => setWithdrawBinanceId(e.target.value)}
+                      placeholder="Binance ID"
+                      className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                    />
+                  </div>
+                )}
+
+                {withdrawMethod === "mobile_money" && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs text-gray-500">Provider</label>
+                      <input
+                        value={withdrawMobileProvider}
+                        onChange={(e) => setWithdrawMobileProvider(e.target.value)}
+                        placeholder="MTN, Airtel, M-Pesa"
+                        className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500">Mobile money number</label>
+                      <input
+                        value={withdrawMobileNumber}
+                        onChange={(e) => setWithdrawMobileNumber(e.target.value)}
+                        placeholder="Registered payout number"
+                        className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-xs text-gray-500">Notes (optional)</label>
+                  <textarea
+                    value={withdrawNotes}
+                    onChange={(e) => setWithdrawNotes(e.target.value)}
+                    rows={3}
+                    className="mt-2 w-full border border-gray-200 rounded p-2 text-sm"
+                  />
+                </div>
+
+                <label className="flex items-start gap-3 rounded-lg bg-gray-50 p-3 text-xs leading-5 text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={withdrawConfirmed}
+                    onChange={(e) => setWithdrawConfirmed(e.target.checked)}
+                    className="mt-1"
+                  />
+                  I confirm these payout details are correct. Incorrect details can delay processing.
+                </label>
               </div>
               <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-5 py-4">
                 <button onClick={() => setShowWithdraw(false)} className="h-9 px-4 border border-gray-200 rounded text-sm hover:bg-gray-50">

@@ -166,10 +166,17 @@ export async function requestWalletTopup(data: {
 
 export async function requestWalletWithdrawal(data: {
   amount: number;
+  method?: "bank" | "crypto" | "binance" | "mobile_money";
   bank_account_id?: number;
   bank_account_number?: string;
   bank_account_name?: string;
   bank_name?: string;
+  crypto_network?: string;
+  crypto_address?: string;
+  binance_id?: string;
+  mobile_money_provider?: string;
+  mobile_money_number?: string;
+  phone_number?: string;
   notes?: string;
 }) {
   return apiFetch<{ success: boolean; message: string; request: any }>(`/wallet/withdraw/request`, {
@@ -179,6 +186,40 @@ export async function requestWalletWithdrawal(data: {
       scope: "seller",
     }),
   });
+}
+
+export interface ApiUiBlock {
+  id: number;
+  key: string;
+  title?: string | null;
+  subtitle?: string | null;
+  label?: string | null;
+  imageSrc: string | null;
+  href: string;
+  meta?: Record<string, any>;
+}
+
+export async function getUiBlocks(params?: {
+  key?: string;
+  country_id?: number;
+}) {
+  const query = new URLSearchParams();
+  if (params?.key) query.set("key", params.key);
+  if (params?.country_id) query.set("country_id", String(params.country_id));
+
+  return apiFetch<{ blocks: ApiUiBlock[] }>(`/ui-blocks${query.toString() ? `?${query.toString()}` : ""}`);
+}
+
+export async function getUiBlocksSafe(params?: {
+  key?: string;
+  country_id?: number;
+}): Promise<ApiUiBlock[]> {
+  try {
+    const response = await getUiBlocks(params);
+    return response.blocks || [];
+  } catch {
+    return [];
+  }
 }
 
 export async function getSellerAnalyticsOverview() {

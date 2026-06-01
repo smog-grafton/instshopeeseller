@@ -9,6 +9,8 @@ import {
   getSellerDashboard,
   getSellerDashboardMetrics,
   getSellerVouchers,
+  getUiBlocksSafe,
+  type ApiUiBlock,
 } from "@/lib/api-client";
 import { SellerWalletWidget } from "@/components/seller-wallet-widget";
 
@@ -230,6 +232,37 @@ function EmptyState({ message }: { message: string }) {
   return <div className="text-sm text-neutral-500">{message}</div>;
 }
 
+function QuickActionIcon({ label }: { label: string }) {
+  const paths: Record<string, string> = {
+    "Wholesale Centre": "M5 5h14l-1 13H6zM9 5a3 3 0 016 0M8 11h8",
+    Orders: "M7 4h10v16H7zM9 8h6M9 12h6M9 16h4",
+    Products: "M12 3 4 7v10l8 4 8-4V7zM4 7l8 4 8-4M12 11v10",
+    "My Balance": "M4 7h15a1 1 0 011 1v11H5a2 2 0 01-2-2V6a2 2 0 012-2h12M16 13h4",
+  };
+
+  return (
+    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-[#ee4d2d]">
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d={paths[label] || paths.Products} />
+      </svg>
+    </span>
+  );
+}
+
+function SellerBanner({ banner }: { banner: ApiUiBlock }) {
+  return (
+    <Link href={banner.href || "/portal/marketing/centre"} className="relative block overflow-hidden rounded-[10px] bg-[#ee4d2d] px-4 py-4 text-white no-underline shadow-sm sm:px-5">
+      {banner.imageSrc ? (
+        <img src={banner.imageSrc} alt="" className="absolute inset-y-0 right-0 h-full w-1/2 object-cover object-center opacity-90" />
+      ) : null}
+      <div className="relative z-10 max-w-[62%]">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/80">{banner.subtitle || "Seller growth center"}</div>
+        <div className="mt-2 text-xl font-semibold leading-6">{banner.title || "Build a stronger store today"}</div>
+      </div>
+    </Link>
+  );
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const isPending = user?.sellerStatus === "pending";
@@ -244,6 +277,7 @@ export default function DashboardPage() {
   const [daily, setDaily] = useState<SellerDailyRow[]>([]);
   const [campaigns, setCampaigns] = useState<SellerCampaign[]>([]);
   const [vouchers, setVouchers] = useState<SellerVoucher[]>([]);
+  const [dashboardBanners, setDashboardBanners] = useState<ApiUiBlock[]>([]);
   const [productCounts, setProductCounts] = useState({ rejected: 0, hidden: 0, pending: 0, live: 0 });
   const [healthMetrics, setHealthMetrics] = useState<{ lowStock: number; avgRating: number }>({ lowStock: 0, avgRating: 0 });
 
@@ -293,12 +327,13 @@ export default function DashboardPage() {
   const loadData = async () => {
     setLoading(true);
 
-    const [dashboardResult, analyticsResult, metricsResult, campaignsResult, vouchersResult] = await Promise.allSettled([
+    const [dashboardResult, analyticsResult, metricsResult, campaignsResult, vouchersResult, bannerResult] = await Promise.allSettled([
       getSellerDashboard(),
       getSellerAnalyticsOverview(),
       getSellerDashboardMetrics(),
       getSellerCampaigns(),
       getSellerVouchers(),
+      getUiBlocksSafe({ key: "seller_dashboard_banner" }),
     ] as const);
 
     if (dashboardResult.status === "fulfilled") {
@@ -317,6 +352,10 @@ export default function DashboardPage() {
 
     if (vouchersResult.status === "fulfilled") {
       setVouchers(vouchersResult.value.vouchers || []);
+    }
+
+    if (bannerResult.status === "fulfilled") {
+      setDashboardBanners(bannerResult.value || []);
     }
 
     if (
@@ -449,12 +488,18 @@ export default function DashboardPage() {
                       <Link
                         key={action.label}
                         href={action.href}
-                        className="border border-neutral-200 bg-white px-3 py-3 text-sm font-medium text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50"
+                        className="flex min-w-0 items-center gap-3 border border-neutral-200 bg-white px-3 py-3 text-sm font-medium text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50"
                       >
-                        {action.label}
+                        <QuickActionIcon label={action.label} />
+                        <span className="min-w-0 truncate">{action.label}</span>
                       </Link>
                     ))}
                   </div>
+                  {dashboardBanners[0] ? (
+                    <div className="mt-4">
+                      <SellerBanner banner={dashboardBanners[0]} />
+                    </div>
+                  ) : null}
                   <div className="mt-4 grid gap-px bg-neutral-200 sm:grid-cols-4">
                     {[
                       {
