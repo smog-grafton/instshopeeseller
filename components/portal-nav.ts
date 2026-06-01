@@ -76,6 +76,13 @@ export const portalNav: NavGroup[] = [
     items: [{ label: "Withdrawals record", href: "/portal/withdrawals-record" }],
   },
   {
+    label: "Withdraw funds",
+    icon: "finance",
+    standalone: true,
+    important: true,
+    items: [{ label: "Withdraw funds", href: "/portal/withdraw" }],
+  },
+  {
     label: "Wallet management",
     icon: "wallet",
     standalone: true,

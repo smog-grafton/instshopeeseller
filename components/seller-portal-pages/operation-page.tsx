@@ -64,7 +64,7 @@ const titles: Record<OperationPageKind, string> = {
 };
 
 const panel = "border border-neutral-200 bg-white shadow-[0_2px_8px_rgba(15,23,42,0.08)]";
-const input = "h-11 w-full border border-neutral-300 bg-white px-3 text-sm outline-none focus:border-red-500";
+const input = "h-11 w-full border border-neutral-300 bg-white px-3 text-sm text-neutral-950 placeholder:text-neutral-400 outline-none caret-red-600 focus:border-red-500";
 const redButton = "inline-flex h-11 items-center justify-center bg-red-600 px-5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50";
 const lightButton = "inline-flex h-11 items-center justify-center border border-neutral-300 bg-white px-5 text-sm font-semibold text-neutral-800 hover:border-neutral-900";
 
@@ -786,7 +786,7 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
               ) : (
                 <div className="grid gap-4">
                   <input className={`${input} h-12 text-base sm:h-14 sm:text-lg`} value={fundsForm.reference} onChange={(event) => setFundsForm((form) => ({ ...form, reference: event.target.value }))} placeholder="Reference / transaction ID" />
-                  <input className="block w-full border border-neutral-300 bg-white px-3 py-3 text-sm" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setFundsForm((form) => ({ ...form, proof: event.target.files?.[0] ?? null }))} />
+                  <input className="block w-full border border-neutral-300 bg-white px-3 py-3 text-sm text-neutral-950 file:mr-3 file:border-0 file:bg-neutral-100 file:px-3 file:py-2 file:text-neutral-800" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setFundsForm((form) => ({ ...form, proof: event.target.files?.[0] ?? null }))} />
                   <textarea className={`${input} h-24 py-3 text-base sm:text-lg`} value={fundsForm.notes} onChange={(event) => setFundsForm((form) => ({ ...form, notes: event.target.value }))} placeholder="Notes" />
                 </div>
               )}
@@ -905,7 +905,7 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
             </div>
             <div className="mt-6 text-xl font-semibold text-neutral-600">Select currency</div>
             <div className="relative mt-3">
-              <button className={`flex h-14 w-full items-center justify-between border px-4 text-left text-xl ${currencyOpen ? "border-red-500" : "border-neutral-300"}`} onClick={() => setCurrencyOpen((open) => !open)}>
+              <button className={`flex h-14 w-full items-center justify-between border bg-white px-4 text-left text-xl font-semibold text-neutral-950 ${currencyOpen ? "border-red-500" : "border-neutral-300"}`} onClick={() => setCurrencyOpen((open) => !open)}>
                 {walletForm.currency} / {walletForm.network}
                 <span>{currencyOpen ? "⌃" : "⌄"}</span>
               </button>

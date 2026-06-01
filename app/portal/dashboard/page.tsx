@@ -263,6 +263,29 @@ function SellerBanner({ banner }: { banner: ApiUiBlock }) {
   );
 }
 
+function SellerToolCard({
+  label,
+  href,
+  color,
+  path,
+}: {
+  label: string;
+  href: string;
+  color: string;
+  path: string;
+}) {
+  return (
+    <Link href={href} className="flex min-w-0 flex-col items-center gap-2 rounded-lg px-1 py-2 text-center no-underline transition active:bg-neutral-50 hover:bg-neutral-50">
+      <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${color}`}>
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d={path} />
+        </svg>
+      </span>
+      <span className="line-clamp-2 min-h-[2.1rem] text-[11px] font-medium leading-4 text-neutral-700 sm:text-xs">{label}</span>
+    </Link>
+  );
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const isPending = user?.sellerStatus === "pending";
@@ -445,8 +468,92 @@ export default function DashboardPage() {
     { label: "My Balance", href: "/portal/finance/my-balance" },
   ];
 
+  const sellerTools = [
+    { label: "Wholesale", href: "/portal/wholesale-centre", color: "bg-sky-100 text-sky-600", path: "M5 5h14l-1 13H6zM9 5a3 3 0 016 0M8 11h8" },
+    { label: "Store Details", href: "/portal/my-shop", color: "bg-pink-100 text-pink-600", path: "M4 10h16l-1.5-5h-13zM6 10v10h12V10M9 20v-6h6v6" },
+    { label: "Goods", href: "/portal/products/my-products", color: "bg-fuchsia-100 text-fuchsia-600", path: "M6 8h12l-1 12H7zM9 8a3 3 0 016 0" },
+    { label: "Store Orders", href: "/portal/orders/my-orders", color: "bg-cyan-100 text-cyan-600", path: "M7 4h10v16H7zM9 8h6M9 12h6M9 16h4" },
+    { label: "Shipping", href: "/portal/shipping-address-management", color: "bg-orange-100 text-orange-600", path: "M3 7h11v9H3zM14 10h4l3 3v3h-7M7 18a2 2 0 100-4 2 2 0 000 4Zm11 0a2 2 0 100-4 2 2 0 000 4Z" },
+    { label: "Marketing", href: "/portal/marketing/centre", color: "bg-rose-100 text-rose-600", path: "M5 19V5l14 4-14 4M5 13l14 4" },
+    { label: "Customer Service", href: "/portal/customer-service/chat-management", color: "bg-red-100 text-red-600", path: "M5 12a7 7 0 1114 0v3a2 2 0 01-2 2h-2M5 12v3a2 2 0 002 2h1M9 18h6" },
+    { label: "Store News", href: "/portal/store-news", color: "bg-blue-100 text-blue-600", path: "M5 5h14v14H5zM8 9h8M8 12h8M8 15h5" },
+    { label: "Wallet address", href: "/portal/wallet-management", color: "bg-purple-100 text-purple-600", path: "M4 7h15a1 1 0 011 1v11H5a2 2 0 01-2-2V6a2 2 0 012-2h12M16 13h4" },
+    { label: "Top up", href: "/portal/finance/my-balance", color: "bg-teal-100 text-teal-600", path: "M12 5v14M5 12h14" },
+    { label: "Withdraw", href: "/portal/withdraw", color: "bg-amber-100 text-amber-600", path: "M12 4v10M8 10l4 4 4-4M5 20h14" },
+    { label: "Settings", href: "/portal/my-account", color: "bg-indigo-100 text-indigo-600", path: "M12 8a4 4 0 100 8 4 4 0 000-8zM4 12h2M18 12h2M12 4v2M12 18v2" },
+  ];
+
   return (
     <div className="max-w-full space-y-4 overflow-hidden sm:space-y-5">
+      <section className="overflow-hidden rounded-[14px] bg-gradient-to-br from-[#ff4d33] via-[#ff6428] to-[#ff8a26] text-white shadow-sm">
+        <div className="px-4 pb-6 pt-5 sm:px-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-white/50 bg-white/20 text-lg font-semibold">
+                {(user?.name || "S").slice(0, 1).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-lg font-semibold">ID: {user?.id ? String(user.id).padStart(7, "0") : "0000000"}</div>
+                <div className="mt-1 inline-flex items-center rounded-full bg-[#17335f] px-2.5 py-1 text-[11px] font-medium text-white">
+                  Platform merchant
+                </div>
+              </div>
+            </div>
+            <Link href="/portal/finance/my-balance" className="shrink-0 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#ee4d2d] no-underline shadow-sm">
+              Wallet
+            </Link>
+          </div>
+          <div className="mt-6 grid grid-cols-4 gap-3">
+            {[
+              { label: "Products", value: stats?.total_products ?? productCounts.live ?? 0 },
+              { label: "Orders", value: stats?.total_orders ?? overview?.total_orders ?? 0 },
+              { label: "To Ship", value: overview?.order_buckets?.to_ship ?? 0 },
+              { label: "Balance", value: formatMoney(wallet?.available_balance ?? wallet?.balance ?? 0, currency) },
+            ].map((item) => (
+              <div key={item.label} className="min-w-0 text-center">
+                <div className="truncate text-base font-semibold leading-none text-white sm:text-lg">{isDashboardLoading ? "--" : item.value}</div>
+                <div className="mt-1 truncate text-[11px] text-white/85">{item.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="-mt-7 grid grid-cols-2 gap-3 px-2 sm:px-0 lg:mt-0">
+        <Link href="/portal/finance/my-balance" className="flex min-w-0 items-center justify-between rounded-xl bg-white p-4 text-neutral-900 no-underline shadow-sm">
+          <div>
+            <div className="text-lg font-semibold">Top up</div>
+            <div className="mt-1 text-xs text-neutral-500">Seller wallet</div>
+          </div>
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-100 text-[#ee4d2d]">
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
+          </span>
+        </Link>
+        <Link href="/portal/withdraw" className="flex min-w-0 items-center justify-between rounded-xl bg-white p-4 text-neutral-900 no-underline shadow-sm">
+          <div>
+            <div className="text-lg font-semibold">Withdraw</div>
+            <div className="mt-1 text-xs text-neutral-500">Up to 7 business days</div>
+          </div>
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 4v10M8 10l4 4 4-4M5 20h14" /></svg>
+          </span>
+        </Link>
+      </section>
+
+      {dashboardBanners[0] ? <SellerBanner banner={dashboardBanners[0]} /> : null}
+
+      <section className="rounded-xl bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-neutral-900">Seller Tools</h2>
+          <Link href="/portal/my-shop" className="text-xs text-neutral-400 no-underline">View</Link>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {sellerTools.map((tool) => (
+            <SellerToolCard key={tool.label} {...tool} />
+          ))}
+        </div>
+      </section>
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(22rem,24rem)]">
         <section className={cardShell}>
           <div className="grid min-w-0 lg:grid-cols-[minmax(0,1.3fr)_minmax(17rem,0.9fr)]">
@@ -495,11 +602,6 @@ export default function DashboardPage() {
                       </Link>
                     ))}
                   </div>
-                  {dashboardBanners[0] ? (
-                    <div className="mt-4">
-                      <SellerBanner banner={dashboardBanners[0]} />
-                    </div>
-                  ) : null}
                   <div className="mt-4 grid gap-px bg-neutral-200 sm:grid-cols-4">
                     {[
                       {
