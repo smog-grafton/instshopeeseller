@@ -140,10 +140,10 @@ export const portalNav: NavGroup[] = [
     items: [{ label: "Product management", href: "/portal/product-management" }],
   },
   {
-    label: "Store order management",
+    label: "Pending orders",
     icon: "order",
     standalone: true,
     important: true,
-    items: [{ label: "Store order management", href: "/portal/store-order-management" }],
+    items: [{ label: "Pending orders", href: "/portal/store-order-management" }],
   },
 ];

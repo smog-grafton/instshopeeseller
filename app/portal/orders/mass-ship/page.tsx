@@ -44,7 +44,7 @@ export default function MassShipPage() {
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
-        <div className="text-sm text-gray-700">Ready to ship: {readyToShip.length}</div>
+        <div className="text-sm text-gray-700">Pending orders: {readyToShip.length}</div>
         <div className="flex flex-col md:flex-row gap-3">
           <input
             value={shippingProvider}
@@ -67,7 +67,7 @@ export default function MassShipPage() {
         {loading ? (
           <div className="p-6 text-sm text-gray-500">Loading orders...</div>
         ) : readyToShip.length === 0 ? (
-          <div className="p-6 text-sm text-gray-500">No orders ready to ship.</div>
+          <div className="p-6 text-sm text-gray-500">No pending orders need processing.</div>
         ) : (
           <div className="divide-y divide-gray-100">
             {readyToShip.map((order) => {

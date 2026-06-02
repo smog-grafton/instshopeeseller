@@ -129,8 +129,8 @@ export function SellerWalletWidget({
                 </div>
                 <div className="mt-1 text-sm font-medium text-neutral-900">
                   {fundingCovered
-                    ? "Current wallet can cover the orders waiting to ship."
-                    : "Top up more funds before you confirm shipping."}
+                    ? "Current wallet can cover pending orders that need processing."
+                    : "Top up more funds before you process pending orders."}
                 </div>
               </div>
               <div className="text-right">

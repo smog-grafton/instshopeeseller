@@ -4,7 +4,9 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { portalNav } from "@/components/portal-nav";
+import { useAuth } from "@/components/auth-provider";
 import { getCatalogProducts, getSellerOrders, logoutApi } from "@/lib/api-client";
+import { resolveSellerPortalAccessState } from "@/lib/portal-access";
 import { getBuyerLoginUrl } from "@/lib/utils";
 
 type IconName =
@@ -114,13 +116,15 @@ const getPaginationTotal = (value?: { total?: number; data?: unknown[] }) => {
 const formatBadgeCount = (count: number) => (count > 99 ? "99+" : String(count));
 
 const groupIndicatorKey = (label: string): IndicatorKey | null => {
-  if (label === "My Order" || label === "Store order management") return "orders";
+  if (label === "My Order" || label === "Pending orders") return "orders";
   if (label === "Wholesale center") return "wholesale";
   return null;
 };
 
 const buildInitialOpenGroups = () =>
   Object.fromEntries(portalNav.map((group) => [group.label, group.defaultOpen ?? group.important ?? false]));
+
+const limitedNavLabels = new Set(["My account", "My message", "Site message"]);
 
 export default function PortalSidebar({
   collapsed,
@@ -133,7 +137,14 @@ export default function PortalSidebar({
   onCloseMobile: () => void;
   onToggleCollapse: () => void;
 }) {
+  const { user } = useAuth();
   const pathname = usePathname();
+  const accessState = resolveSellerPortalAccessState(user);
+  const canManageStore = accessState === "approved";
+  const navigationGroups = useMemo(
+    () => (canManageStore ? portalNav : portalNav.filter((group) => limitedNavLabels.has(group.label))),
+    [canManageStore]
+  );
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => buildInitialOpenGroups());
   const [indicators, setIndicators] = useState<Record<IndicatorKey, number>>({
     orders: 0,
@@ -141,11 +152,18 @@ export default function PortalSidebar({
   });
 
   const activeGroup = useMemo(() => {
-    const match = portalNav.find((group) => group.items.some((item) => pathname.startsWith(item.href)));
+    const match = navigationGroups.find((group) => group.items.some((item) => pathname.startsWith(item.href)));
     return match?.label ?? "My account";
-  }, [pathname]);
+  }, [navigationGroups, pathname]);
 
   const loadIndicators = useCallback(async () => {
+    if (!canManageStore) {
+      return {
+        orders: 0,
+        wholesale: 0,
+      };
+    }
+
     const [processingResult, paidResult, wholesaleResult] = await Promise.allSettled([
       getSellerOrders({ status: "PROCESSING" }),
       getSellerOrders({ status: "PAID" }),
@@ -163,7 +181,7 @@ export default function PortalSidebar({
       orders: processingOrders + paidOrders,
       wholesale: wholesaleCount,
     };
-  }, []);
+  }, [canManageStore]);
 
   useEffect(() => {
     let active = true;
@@ -263,7 +281,12 @@ export default function PortalSidebar({
       </div>
 
       <div className="flex-1 space-y-2 overflow-y-auto px-2 py-4">
-        {portalNav.map((group) => {
+        {!canManageStore && !collapsed ? (
+          <div className="mx-1 mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-900">
+            Store tools unlock after verification.
+          </div>
+        ) : null}
+        {navigationGroups.map((group) => {
           const open = isOpen(group.label);
           const indicatorKey = groupIndicatorKey(group.label);
           const firstHref = group.items[0]?.href ?? "/portal/dashboard";

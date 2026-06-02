@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { logoutApi } from "@/lib/api-client";
+import { resolveSellerPortalAccessState } from "@/lib/portal-access";
 import { getBuyerLoginUrl, isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
 
 const SUPPORT_EMAIL = "shopeecustomerservice58@gmail.com";
@@ -15,6 +16,7 @@ export default function PortalTopbar({ onOpenMenu }: { onOpenMenu: () => void })
   const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const canManageStore = resolveSellerPortalAccessState(user) === "approved";
 
   const avatarUrl = (() => {
     if (!user?.avatarUrl) return null;
@@ -55,13 +57,15 @@ export default function PortalTopbar({ onOpenMenu }: { onOpenMenu: () => void })
       </div>
       <div className="flex items-center gap-3 sm:gap-4 min-w-0 overflow-x-auto overflow-y-hidden flex-1 justify-end md:flex-initial [scrollbar-width:thin]">
         <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
-          <Link href="/portal/my-shop" className="text-gray-500 hover:text-gray-700 flex-shrink-0" title="My shop">
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-              <path d="M4 8.5h16v10.5H4z" stroke="currentColor" strokeWidth="1.5" />
-              <path d="M7 8.5V5h10v3.5" stroke="currentColor" strokeWidth="1.5" />
-              <path d="M8 13h3m2 0h3" stroke="currentColor" strokeWidth="1.5" />
-            </svg>
-          </Link>
+          {canManageStore ? (
+            <Link href="/portal/my-shop" className="text-gray-500 hover:text-gray-700 flex-shrink-0" title="My shop">
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                <path d="M4 8.5h16v10.5H4z" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M7 8.5V5h10v3.5" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M8 13h3m2 0h3" stroke="currentColor" strokeWidth="1.5" />
+              </svg>
+            </Link>
+          ) : null}
           <button
             type="button"
             className="text-gray-500 hover:text-gray-700 flex-shrink-0"
@@ -114,18 +118,25 @@ export default function PortalTopbar({ onOpenMenu }: { onOpenMenu: () => void })
                   <div className="text-xs text-gray-500 break-all">{user?.email || ""}</div>
                 </div>
                 <div className="py-2">
-                  <Link href="/portal/dashboard" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setShowUserMenu(false)}>
-                    Dashboard
+                  <Link href="/portal/my-account" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setShowUserMenu(false)}>
+                    {canManageStore ? "My Account" : "Review Status"}
                   </Link>
-                  <Link href="/portal/finance/my-balance" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setShowUserMenu(false)}>
-                    My Balance
-                  </Link>
-                  <Link href="/portal/shop/shop-information" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setShowUserMenu(false)}>
-                    Shop Information
-                  </Link>
-                  <Link href="/portal/shop/shop-setting" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setShowUserMenu(false)}>
-                    Shop Settings
-                  </Link>
+                  {canManageStore ? (
+                    <>
+                      <Link href="/portal/dashboard" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setShowUserMenu(false)}>
+                        Dashboard
+                      </Link>
+                      <Link href="/portal/finance/my-balance" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setShowUserMenu(false)}>
+                        My Balance
+                      </Link>
+                      <Link href="/portal/shop/shop-information" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setShowUserMenu(false)}>
+                        Shop Information
+                      </Link>
+                      <Link href="/portal/shop/shop-setting" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setShowUserMenu(false)}>
+                        Shop Settings
+                      </Link>
+                    </>
+                  ) : null}
                 </div>
                 <div className="border-t border-gray-100">
                   <button

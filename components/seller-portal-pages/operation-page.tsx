@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import Image from "next/image";
+import { useAuth } from "@/components/auth-provider";
 import {
   createSellerWalletAddress,
   getDepositPaymentMethods,
@@ -139,6 +140,51 @@ function PageHeader({ title, onRefresh }: { title: string; onRefresh?: () => voi
   );
 }
 
+function ReviewStatusPanel({ status }: { status?: string | null }) {
+  if (status !== "pending" && status !== "suspended") {
+    return null;
+  }
+
+  const isPending = status === "pending";
+
+  return (
+    <section className={`${panel} overflow-hidden`}>
+      <div className={`${isPending ? "bg-amber-50 text-amber-900" : "bg-red-50 text-red-900"} px-5 py-5`}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">Merchant review status</div>
+            <h2 className="mt-2 text-2xl font-bold tracking-normal">
+              {isPending ? "Application under review" : "Account access limited"}
+            </h2>
+            <p className="mt-3 max-w-3xl text-sm leading-6">
+              {isPending
+                ? "Thank you for your submission. Your account is currently under review by our verification team. This process may take up to 24 hours to complete."
+                : "Your seller account is currently suspended. Store management tools will remain unavailable until the account is restored."}
+            </p>
+          </div>
+          <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${isPending ? "bg-white/80 text-amber-700" : "bg-white/80 text-red-700"}`}>
+            {isPending ? "Pending review" : "Suspended"}
+          </span>
+        </div>
+      </div>
+      <div className="grid gap-px bg-neutral-200 sm:grid-cols-3">
+        <div className="bg-white px-5 py-4">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">Current step</div>
+          <div className="mt-2 text-sm font-semibold text-neutral-900">{isPending ? "Verification in progress" : "Access review"}</div>
+        </div>
+        <div className="bg-white px-5 py-4">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">Estimated time</div>
+          <div className="mt-2 text-sm font-semibold text-neutral-900">{isPending ? "Up to 24 hours" : "Contact support"}</div>
+        </div>
+        <div className="bg-white px-5 py-4">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">Store tools</div>
+          <div className="mt-2 text-sm font-semibold text-neutral-900">Locked until approved</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Pager({ page, data, onPage }: { page: number; data: unknown; onPage: (page: number) => void }) {
   return (
     <div className="mt-5 flex items-center gap-3 text-sm text-neutral-600">
@@ -174,6 +220,7 @@ function MetricCell({ label, value }: { label: string; value: string | number })
 }
 
 export function OperationPage({ kind }: { kind: OperationPageKind }) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
   const [data, setData] = useState<RecordMap>({});
@@ -436,6 +483,7 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
 
       {!loading && kind === "account" ? (
         <div className="grid gap-6">
+          <ReviewStatusPanel status={user?.sellerStatus} />
           <section className={`${panel} p-5`}>
             <InfoRow label="Username:" value={formatValue(account.store_name, "Store")} />
             <InfoRow label="ID:" value={formatValue(account.store_id, "Not assigned")} />

@@ -442,11 +442,11 @@ export default function DashboardPage() {
       title: "Funding Needed",
       value: overview?.funding_needed ?? 0,
       description: fundingCovered
-        ? "Wallet can currently support orders that are ready for shipment confirmation."
-        : "Current available balance is below what your to-ship queue needs for shipping reserve.",
+        ? "Wallet can currently support pending orders that need seller processing."
+        : "Current available balance is below what your pending order queue needs for shipping reserve.",
       footnote: fundingCovered
         ? `Shortfall cleared. Available wallet can cover current queue.`
-        : `Top up ${formatMoney(fundingGap, currency)} to ship every ready order.`,
+        : `Top up ${formatMoney(fundingGap, currency)} to process every pending order.`,
       tone: fundingCovered ? ("blue" as const) : ("rose" as const),
       href: "/portal/finance/my-balance",
     },
@@ -483,6 +483,59 @@ export default function DashboardPage() {
     { label: "Settings", href: "/portal/my-account", color: "bg-indigo-100 text-indigo-600", path: "M12 8a4 4 0 100 8 4 4 0 000-8zM4 12h2M18 12h2M12 4v2M12 18v2" },
   ];
 
+  if (isLimited) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-5 overflow-hidden pb-10">
+        <section className="overflow-hidden rounded-[14px] bg-gradient-to-br from-[#ff4d33] via-[#ff6428] to-[#ff8a26] text-white shadow-sm">
+          <div className="px-4 pb-6 pt-5 sm:px-6">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-white/50 bg-white/20 text-lg font-semibold">
+                  {(user?.name || "S").slice(0, 1).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-lg font-semibold">ID: {user?.id ? String(user.id).padStart(7, "0") : "0000000"}</div>
+                  <div className="mt-1 inline-flex items-center rounded-full bg-[#17335f] px-2.5 py-1 text-[11px] font-medium text-white">
+                    {isPending ? "Pending merchant" : "Limited account"}
+                  </div>
+                </div>
+              </div>
+              <Link href="/portal/my-account" className="shrink-0 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#ee4d2d] no-underline shadow-sm">
+                Status
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-xl border border-amber-200 bg-white shadow-sm">
+          <div className={`${isPending ? "bg-amber-50 text-amber-900" : "bg-red-50 text-red-900"} px-5 py-5 sm:px-6`}>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">Merchant review status</div>
+            <h1 className="mt-2 text-2xl font-bold tracking-normal">
+              {isPending ? "Application under review" : "Account access limited"}
+            </h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6">
+              {isPending
+                ? "Thank you for your submission. Your account is currently under review by our verification team. This process may take up to 24 hours to complete."
+                : "Your seller account is currently suspended. Store management tools will remain unavailable until the account is restored."}
+            </p>
+          </div>
+          <div className="grid gap-px bg-neutral-200 sm:grid-cols-3">
+            {[
+              { label: "Current step", value: isPending ? "Verification in progress" : "Access review" },
+              { label: "Estimated time", value: isPending ? "Up to 24 hours" : "Contact support" },
+              { label: "Store tools", value: "Locked until approved" },
+            ].map((item) => (
+              <div key={item.label} className="bg-white px-5 py-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">{item.label}</div>
+                <div className="mt-2 text-sm font-semibold text-neutral-900">{item.value}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-full space-y-4 overflow-hidden sm:space-y-5">
       <section className="overflow-hidden rounded-[14px] bg-gradient-to-br from-[#ff4d33] via-[#ff6428] to-[#ff8a26] text-white shadow-sm">
@@ -507,7 +560,7 @@ export default function DashboardPage() {
             {[
               { label: "Products", value: stats?.total_products ?? productCounts.live ?? 0 },
               { label: "Orders", value: stats?.total_orders ?? overview?.total_orders ?? 0 },
-              { label: "To Ship", value: overview?.order_buckets?.to_ship ?? 0 },
+              { label: "Pending orders", value: overview?.order_buckets?.to_ship ?? 0 },
               { label: "Balance", value: formatMoney(wallet?.available_balance ?? wallet?.balance ?? 0, currency) },
             ].map((item) => (
               <div key={item.label} className="min-w-0 text-center">
@@ -605,7 +658,7 @@ export default function DashboardPage() {
                   <div className="mt-4 grid gap-px bg-neutral-200 sm:grid-cols-4">
                     {[
                       {
-                        label: "Orders in queue",
+                        label: "Pending orders",
                         value: overview.order_buckets.awaiting_payment + overview.order_buckets.to_ship,
                       },
                       {
@@ -641,9 +694,9 @@ export default function DashboardPage() {
                   description: "Orders still waiting for buyer payment clearance.",
                 },
                 {
-                  label: "Ready to ship",
+                  label: "Pending orders",
                   value: overview?.order_buckets?.to_ship ?? 0,
-                  description: "Paid orders that still need seller shipping action.",
+                  description: "Paid orders that still need seller processing.",
                 },
                 {
                   label: "Delivered",
