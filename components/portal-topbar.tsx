@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { logoutApi } from "@/lib/api-client";
-import { resolveSellerPortalAccessState } from "@/lib/portal-access";
+import { canUseSellerStoreTools } from "@/lib/portal-access";
 import { getBuyerLoginUrl, isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
 
 const SUPPORT_EMAIL = "shopeecustomerservice58@gmail.com";
@@ -16,7 +16,7 @@ export default function PortalTopbar({ onOpenMenu }: { onOpenMenu: () => void })
   const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const canManageStore = resolveSellerPortalAccessState(user) === "approved";
+  const canManageStore = canUseSellerStoreTools(user);
 
   const avatarUrl = (() => {
     if (!user?.avatarUrl) return null;

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { portalNav } from "@/components/portal-nav";
 import { useAuth } from "@/components/auth-provider";
 import { getCatalogProducts, getSellerOrders, logoutApi } from "@/lib/api-client";
-import { resolveSellerPortalAccessState } from "@/lib/portal-access";
+import { canUseSellerStoreTools } from "@/lib/portal-access";
 import { getBuyerLoginUrl } from "@/lib/utils";
 
 type IconName =
@@ -139,8 +139,7 @@ export default function PortalSidebar({
 }) {
   const { user } = useAuth();
   const pathname = usePathname();
-  const accessState = resolveSellerPortalAccessState(user);
-  const canManageStore = accessState === "approved";
+  const canManageStore = canUseSellerStoreTools(user);
   const navigationGroups = useMemo(
     () => (canManageStore ? portalNav : portalNav.filter((group) => limitedNavLabels.has(group.label))),
     [canManageStore]

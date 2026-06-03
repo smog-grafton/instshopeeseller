@@ -240,7 +240,9 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
   const [shopForm, setShopForm] = useState({ name: "", description: "", status_text: "", store_news: "" });
   const [shopUploading, setShopUploading] = useState<"logo" | "cover" | null>(null);
   const [countries, setCountries] = useState<CountryOption[]>([]);
-  const [accountModal, setAccountModal] = useState<"phone" | "email" | "login-password" | "transaction-password" | null>(null);
+  const [accountModal, setAccountModal] = useState<"username" | "invitation-code" | "phone" | "email" | "login-password" | "transaction-password" | null>(null);
+  const [usernameForm, setUsernameForm] = useState("");
+  const [invitationCodeForm, setInvitationCodeForm] = useState("");
   const [phoneBindForm, setPhoneBindForm] = useState({ countryCode: "", phone: "", code: "" });
   const [phoneCode, setPhoneCode] = useState("");
   const [emailBindForm, setEmailBindForm] = useState({ oldCode: "", newEmail: "", newCode: "" });
@@ -354,6 +356,40 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
     setPhoneCode("");
     setPhoneBindForm((form) => ({ ...form, phone: "", code: "" }));
     setNotice("Phone number bound.");
+    await load();
+  };
+
+  const submitUsername = async () => {
+    const username = usernameForm.trim();
+    if (!username) {
+      setNotice("Please enter a username.");
+      return;
+    }
+
+    await updateSellerAccountProfile({
+      email: formatValue(account.email, ""),
+      phone: account.phone ? String(account.phone) : null,
+      username,
+    });
+    setAccountModal(null);
+    setNotice("Username updated.");
+    await load();
+  };
+
+  const submitInvitationCode = async () => {
+    const code = invitationCodeForm.trim().toUpperCase();
+    if (!code) {
+      setNotice("Please enter your invitation code or contact support for help.");
+      return;
+    }
+
+    await updateSellerAccountProfile({
+      email: formatValue(account.email, ""),
+      phone: account.phone ? String(account.phone) : null,
+      invitation_code: code,
+    });
+    setAccountModal(null);
+    setNotice("Invitation code saved.");
     await load();
   };
 
@@ -484,9 +520,42 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
       {!loading && kind === "account" ? (
         <div className="grid gap-6">
           <ReviewStatusPanel status={user?.sellerStatus} />
+          {account.has_invitation_code ? null : (
+            <section className={`${panel} border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900`}>
+              <div className="text-lg font-bold text-amber-950">Invitation code required</div>
+              <p className="mt-1">
+                Seller tools are unavailable until a valid invitation code is added to this account. If you do not have one, contact shopeecustomerservice58@gmail.com.
+              </p>
+              <button
+                className={`${redButton} mt-4`}
+                onClick={() => {
+                  setInvitationCodeForm(formatValue(account.invitation_code, ""));
+                  setAccountModal("invitation-code");
+                }}
+              >
+                Add invitation code
+              </button>
+            </section>
+          )}
           <section className={`${panel} p-5`}>
-            <InfoRow label="Username:" value={formatValue(account.store_name, "Store")} />
+            <InfoRow
+              label="Username:"
+              value={formatValue(account.username, "Not set")}
+              action={<button className="text-sm font-semibold text-red-700" onClick={() => {
+                setUsernameForm(formatValue(account.username, ""));
+                setAccountModal("username");
+              }}>{account.username ? "To modify" : "Add"}</button>}
+            />
+            <InfoRow label="Store name:" value={formatValue(account.store_name, "Store")} />
             <InfoRow label="ID:" value={formatValue(account.store_id, "Not assigned")} />
+            <InfoRow
+              label="Invitation code:"
+              value={formatValue(account.invitation_code, "Not added")}
+              action={account.has_invitation_code ? undefined : <button className="text-sm font-semibold text-red-700" onClick={() => {
+                setInvitationCodeForm("");
+                setAccountModal("invitation-code");
+              }}>Add</button>}
+            />
             <InfoRow
               label="Phone number:"
               value={account.phone ? String(account.phone) : "Not bound"}
@@ -873,6 +942,48 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
             </div>
             {phoneCode ? <div className="mt-3 text-sm font-semibold text-red-600">Verification code: {phoneCode}</div> : null}
             <button className={`${redButton} mt-8 h-14 w-full text-xl`} onClick={submitPhoneBinding}>Submit</button>
+          </div>
+        </div>
+      ) : null}
+
+      {accountModal === "username" ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-lg bg-white p-8 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-200 pb-5">
+              <h2 className="text-3xl font-bold text-black">Update username</h2>
+              <button className="text-4xl leading-none" onClick={() => setAccountModal(null)}>×</button>
+            </div>
+            <div className="mt-5 text-xl font-semibold text-neutral-600">Username</div>
+            <input
+              className={`${input} mt-3 h-14 text-lg`}
+              value={usernameForm}
+              onChange={(event) => setUsernameForm(event.target.value)}
+              placeholder="Enter username"
+            />
+            <p className="mt-2 text-sm text-neutral-500">Use 3-50 letters, numbers, underscores, or dashes.</p>
+            <button className={`${redButton} mt-8 h-14 w-full text-xl`} onClick={submitUsername}>Submit</button>
+          </div>
+        </div>
+      ) : null}
+
+      {accountModal === "invitation-code" ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-lg bg-white p-8 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-200 pb-5">
+              <h2 className="text-3xl font-bold text-black">Add invitation code</h2>
+              <button className="text-4xl leading-none" onClick={() => setAccountModal(null)}>×</button>
+            </div>
+            <div className="mt-5 text-xl font-semibold text-neutral-600">Invitation code</div>
+            <input
+              className={`${input} mt-3 h-14 text-lg uppercase`}
+              value={invitationCodeForm}
+              onChange={(event) => setInvitationCodeForm(event.target.value.toUpperCase())}
+              placeholder="Example: SHOPEE-X2"
+            />
+            <p className="mt-2 text-sm leading-6 text-neutral-500">
+              This code is required before seller tools can be used. If you do not have one, contact shopeecustomerservice58@gmail.com.
+            </p>
+            <button className={`${redButton} mt-8 h-14 w-full text-xl`} onClick={submitInvitationCode}>Submit</button>
           </div>
         </div>
       ) : null}

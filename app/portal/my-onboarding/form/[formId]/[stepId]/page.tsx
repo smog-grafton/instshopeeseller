@@ -31,6 +31,9 @@ type OnboardingApplicationSnapshot = {
   cod_enabled?: boolean;
   days_to_ship?: number | string | null;
   identity_document_url?: string;
+  identity_document_front_path?: string | null;
+  identity_document_back_path?: string | null;
+  selfie_with_id_path?: string | null;
   business_registration_url?: string;
   bank_account_name?: string;
   bank_account_number?: string;
@@ -77,6 +80,9 @@ export default function OnboardingFormPage() {
   const [businessRegFile, setBusinessRegFile] = useState<File | null>(null);
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [identityDocumentUrl, setIdentityDocumentUrl] = useState("");
+  const [existingIdentityFront, setExistingIdentityFront] = useState(false);
+  const [existingIdentityBack, setExistingIdentityBack] = useState(false);
+  const [existingSelfie, setExistingSelfie] = useState(false);
   const [businessRegistrationUrl, setBusinessRegistrationUrl] = useState("");
   // Step 4
   const [bankAccountName, setBankAccountName] = useState("");
@@ -119,6 +125,9 @@ export default function OnboardingFormPage() {
         if (typeof app.cod_enabled === "boolean") setCodEnabled(app.cod_enabled);
         if (app.days_to_ship != null) setDaysToShip(Number(app.days_to_ship) || 3);
         if (app.identity_document_url) setIdentityDocumentUrl(app.identity_document_url);
+        setExistingIdentityFront(Boolean(app.identity_document_front_path));
+        setExistingIdentityBack(Boolean(app.identity_document_back_path));
+        setExistingSelfie(Boolean(app.selfie_with_id_path));
         if (app.business_registration_url) setBusinessRegistrationUrl(app.business_registration_url);
         if (app.bank_account_name) setBankAccountName(app.bank_account_name);
         if (app.bank_account_number) setBankAccountNumber(app.bank_account_number);
@@ -164,6 +173,10 @@ export default function OnboardingFormPage() {
       alert("Please enter a shop name");
       return;
     }
+    if (!invitationCode.trim()) {
+      alert("Please enter your invitation code. If you do not have one, contact shopeecustomerservice58@gmail.com.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -185,6 +198,10 @@ export default function OnboardingFormPage() {
     if (stepId === STEP_IDS.step1) {
       if (!shopName.trim()) {
         alert("Please enter a shop name to continue");
+        return;
+      }
+      if (!invitationCode.trim()) {
+        alert("Please enter your invitation code. If you do not have one, contact shopeecustomerservice58@gmail.com.");
         return;
       }
       setSaving(true);
@@ -235,12 +252,15 @@ export default function OnboardingFormPage() {
       return;
     }
     if (stepId === STEP_IDS.step3) {
-      const hasIdentity = !!identityDocFront || !!identityDocumentUrl.trim();
-      if (!hasIdentity) {
-        alert("Please upload the front of your ID or provide an identity document URL.");
+      if (!identityDocFront && !existingIdentityFront) {
+        alert("Please upload the front of your identity card.");
         return;
       }
-      if (!selfieFile) {
+      if (!identityDocBack && !existingIdentityBack) {
+        alert("Please upload the back of your identity card.");
+        return;
+      }
+      if (!selfieFile && !existingSelfie) {
         alert("Please upload a selfie with your ID.");
         return;
       }
@@ -573,7 +593,7 @@ export default function OnboardingFormPage() {
                     {/* Invitation Code */}
                     <div className="flex items-start">
                       <label className="w-[200px] flex items-center justify-end min-h-8 mr-4 text-sm text-right flex-shrink-0 leading-4">
-                        Invitation Code <span className="text-gray-400 text-xs ml-1">(optional)</span>
+                        <span className="text-red-500 mr-1">*</span> Invitation Code
                       </label>
                       <div className="flex-1">
                         <div className="max-w-[384px] space-y-2">
@@ -585,7 +605,7 @@ export default function OnboardingFormPage() {
                             className="w-full h-8 px-3 border border-gray-200 rounded text-sm text-gray-700 outline-0"
                           />
                           <p className="text-xs text-gray-500">
-                            Add the invitation code given to you by support or an admin. You can continue without one.
+                            Enter the invitation code given by support or an admin. If you do not have one, contact shopeecustomerservice58@gmail.com.
                           </p>
                         </div>
                       </div>
@@ -744,13 +764,13 @@ export default function OnboardingFormPage() {
                             className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-orange-50 file:text-orange-700"
                           />
                           {identityDocFront && <p className="text-xs text-gray-500 mt-1">{identityDocFront.name} ({(identityDocFront.size / 1024).toFixed(1)} KB)</p>}
-                          <p className="text-xs text-gray-500 mt-0.5">JPG or PNG, max {MAX_IMAGE_MB}MB</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{existingIdentityFront ? "Existing front image saved. Upload again only if replacing it. " : ""}JPG or PNG, max {MAX_IMAGE_MB}MB</p>
                         </div>
                       </div>
 
                       <div className="flex items-start mb-6">
                         <label className="w-[200px] flex items-center justify-end min-h-8 mr-4 text-sm text-right flex-shrink-0 leading-4 pt-1">
-                          ID document (back) <span className="text-gray-400 text-xs ml-1">(optional)</span>
+                          <span className="text-red-500 mr-1">*</span> ID document (back)
                         </label>
                         <div className="flex-1 max-w-[400px]">
                           <input
@@ -764,6 +784,7 @@ export default function OnboardingFormPage() {
                             className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-orange-50 file:text-orange-700"
                           />
                           {identityDocBack && <p className="text-xs text-gray-500 mt-1">{identityDocBack.name}</p>}
+                          <p className="text-xs text-gray-500 mt-0.5">{existingIdentityBack ? "Existing back image saved. Upload again only if replacing it. " : ""}JPG or PNG, max {MAX_IMAGE_MB}MB</p>
                         </div>
                       </div>
 
@@ -783,7 +804,7 @@ export default function OnboardingFormPage() {
                             className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-orange-50 file:text-orange-700"
                           />
                           {selfieFile && <p className="text-xs text-gray-500 mt-1">{selfieFile.name}</p>}
-                          <p className="text-xs text-gray-500 mt-0.5">Hold your ID next to your face. Max {MAX_IMAGE_MB}MB</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{existingSelfie ? "Existing selfie saved. Upload again only if replacing it. " : ""}Hold your ID next to your face. Max {MAX_IMAGE_MB}MB</p>
                         </div>
                       </div>
 

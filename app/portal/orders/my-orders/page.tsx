@@ -196,7 +196,7 @@ export default function SellerOrdersPage() {
                   </div>
 
                   <div className="text-xs text-gray-500">
-                    Buyer: {order.user?.name || "Customer"} • {address.fullName || ""} • {address.phoneNumber || ""}
+                    Buyer protected: {order.user?.name || "Customer"} • {address.fullName || ""} • {address.phoneNumber || ""}
                   </div>
                   <div className="text-xs text-gray-500">
                     Ship to: {address.streetAddress || ""} {address.stateArea || ""} {address.postalCode || ""}

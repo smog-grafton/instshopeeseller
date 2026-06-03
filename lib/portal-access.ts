@@ -44,6 +44,14 @@ function isDashboardPath(pathname: string): boolean {
   return pathname === "/portal/my-account" || pathname === "/portal/dashboard";
 }
 
+function isAccountPath(pathname: string): boolean {
+  return pathname === "/portal/my-account";
+}
+
+export function canUseSellerStoreTools(user?: ApiUser | null): boolean {
+  return resolveSellerPortalAccessState(user) === "approved" && user?.hasSellerInvitationCode !== false;
+}
+
 export function resolveSellerPortalAccessState(user?: ApiUser | null): SellerPortalAccessState {
   if (!user) {
     return "buyer";
@@ -98,6 +106,10 @@ export function resolveSellerPortalRoute(user: ApiUser, pathname: string, allowM
   }
 
   if (state === "approved") {
+    if (user.hasSellerInvitationCode === false) {
+      return isAccountPath(pathname) ? null : { type: "internal", href: "/portal/my-account" };
+    }
+
     return isOnboardingPath(pathname) || pathname === "/portal/dashboard" ? { type: "internal", href: "/portal/my-account" } : null;
   }
 

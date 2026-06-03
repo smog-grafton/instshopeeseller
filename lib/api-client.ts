@@ -20,6 +20,8 @@ export interface ApiUser {
   canAccessBuyerPortal?: boolean;
   isSeller?: boolean;
   sellerStatus?: "pending" | "approved" | "rejected" | "suspended" | null;
+  sellerInvitationCode?: string | null;
+  hasSellerInvitationCode?: boolean;
   prefersSellerPortal?: boolean;
 }
 
@@ -536,7 +538,12 @@ export async function getSellerAccount() {
   return apiFetch<{ success: boolean; account: any }>(`/seller/account`);
 }
 
-export async function updateSellerAccountProfile(data: { email: string; phone?: string | null }) {
+export async function updateSellerAccountProfile(data: {
+  email: string;
+  phone?: string | null;
+  username?: string | null;
+  invitation_code?: string | null;
+}) {
   return apiFetch<{ success: boolean; account: any }>(`/seller/account/profile`, {
     method: "PUT",
     body: JSON.stringify(data),
