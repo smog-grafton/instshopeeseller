@@ -73,6 +73,11 @@ const withdrawalMethods: Array<{ value: WithdrawalMethod; label: string; note: s
   { value: "mobile_money", label: "Mobile money", note: "Use a provider and registered mobile money number." },
 ];
 
+const fieldClass = "mt-2 w-full rounded border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-100 disabled:text-gray-500";
+const inputClass = `${fieldClass} h-11`;
+const textareaClass = `${fieldClass} min-h-24 py-2 leading-6`;
+const secondaryButtonClass = "h-11 rounded border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-800 hover:border-gray-400 hover:bg-gray-50";
+
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message) {
     return error.message;
@@ -411,7 +416,7 @@ export default function MyBalancePage() {
                       onChange={(e) => setTopupAmount(e.target.value)}
                       placeholder="Minimum 10"
                       type="number"
-                      className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                      className={inputClass}
                     />
                   </div>
                   <div>
@@ -419,7 +424,7 @@ export default function MyBalancePage() {
                     <select
                       value={topupMethodId ?? ""}
                       onChange={(e) => setTopupMethodId(e.target.value ? Number(e.target.value) : null)}
-                      className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                      className={inputClass}
                     >
                       <option value="">Select gateway</option>
                       {manualMethods.length > 0 && (
@@ -636,7 +641,7 @@ export default function MyBalancePage() {
                       <select
                         value={withdrawBankId === "" ? "" : String(withdrawBankId)}
                         onChange={(e) => onSelectBank(e.target.value)}
-                        className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                        className={inputClass}
                       >
                         <option value="">Select account</option>
                         {accounts.map((account) => (
@@ -656,7 +661,7 @@ export default function MyBalancePage() {
                             value={withdrawBankName}
                             onChange={(e) => setWithdrawBankName(e.target.value)}
                             placeholder="Bank name"
-                            className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                            className={inputClass}
                           />
                         </div>
                         <div>
@@ -665,7 +670,7 @@ export default function MyBalancePage() {
                             value={withdrawAccountName}
                             onChange={(e) => setWithdrawAccountName(e.target.value)}
                             placeholder="Account holder name"
-                            className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                            className={inputClass}
                           />
                         </div>
                         <div className="md:col-span-2">
@@ -674,7 +679,7 @@ export default function MyBalancePage() {
                             value={withdrawAccountNumber}
                             onChange={(e) => setWithdrawAccountNumber(e.target.value)}
                             placeholder="Account number"
-                            className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                            className={inputClass}
                           />
                         </div>
                       </div>
@@ -690,7 +695,7 @@ export default function MyBalancePage() {
                         value={withdrawCryptoNetwork}
                         onChange={(e) => setWithdrawCryptoNetwork(e.target.value)}
                         placeholder="USDT TRC20, BTC, ERC20"
-                        className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                        className={inputClass}
                       />
                     </div>
                     <div className="md:col-span-2">
@@ -700,7 +705,7 @@ export default function MyBalancePage() {
                         onChange={(e) => setWithdrawCryptoAddress(e.target.value)}
                         rows={3}
                         placeholder="Paste wallet address"
-                        className="mt-2 w-full border border-gray-200 rounded p-2 text-sm"
+                        className={textareaClass}
                       />
                     </div>
                   </div>
@@ -713,7 +718,7 @@ export default function MyBalancePage() {
                       value={withdrawBinanceId}
                       onChange={(e) => setWithdrawBinanceId(e.target.value)}
                       placeholder="Binance ID"
-                      className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                      className={inputClass}
                     />
                   </div>
                 )}
@@ -726,7 +731,7 @@ export default function MyBalancePage() {
                         value={withdrawMobileProvider}
                         onChange={(e) => setWithdrawMobileProvider(e.target.value)}
                         placeholder="MTN, Airtel, M-Pesa"
-                        className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                        className={inputClass}
                       />
                     </div>
                     <div>
@@ -735,7 +740,7 @@ export default function MyBalancePage() {
                         value={withdrawMobileNumber}
                         onChange={(e) => setWithdrawMobileNumber(e.target.value)}
                         placeholder="Registered payout number"
-                        className="mt-2 h-10 px-3 border border-gray-200 rounded text-sm w-full"
+                        className={inputClass}
                       />
                     </div>
                   </div>
@@ -747,7 +752,7 @@ export default function MyBalancePage() {
                     value={withdrawNotes}
                     onChange={(e) => setWithdrawNotes(e.target.value)}
                     rows={3}
-                    className="mt-2 w-full border border-gray-200 rounded p-2 text-sm"
+                    className={textareaClass}
                   />
                 </div>
 
@@ -762,13 +767,13 @@ export default function MyBalancePage() {
                 </label>
               </div>
               <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-5 py-4">
-                <button onClick={() => setShowWithdraw(false)} className="h-9 px-4 border border-gray-200 rounded text-sm hover:bg-gray-50">
+                <button onClick={() => setShowWithdraw(false)} className={secondaryButtonClass}>
                   Cancel
                 </button>
                 <button
                   onClick={onWithdraw}
                   disabled={!canSubmitWithdraw}
-                  className="h-9 px-4 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 disabled:opacity-50"
+                  className="h-11 rounded bg-orange-600 px-4 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
                 >
                   {withdrawLoading ? "Submitting..." : "Submit Request"}
                 </button>

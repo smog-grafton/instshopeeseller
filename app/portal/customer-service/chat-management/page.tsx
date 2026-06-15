@@ -33,6 +33,8 @@ export default function ChatManagementPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [search, setSearch] = useState("");
   const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
   const typingRef = useRef(0);
@@ -171,28 +173,38 @@ export default function ChatManagementPage() {
 
   const onSend = async (e: FormEvent) => {
     e.preventDefault();
-    if (!selectedId || !input.trim()) return;
+    if (!selectedId || !input.trim() || sending) return;
     const text = input.trim();
     setInput("");
+    setSending(true);
+    setSendError(null);
     const tempId = `tmp-${Date.now()}`;
     setMessages((prev) => [...prev, { id: tempId, text, sender_type: "seller", sender_label: "You", timestamp: "now" }]);
-    const res = await sendSellerChatMessage(selectedId, text);
-    sendSellerChatTyping(selectedId, false).catch(() => {});
-    setMessages((prev) => [
-      ...prev.filter((m) => m.id !== tempId),
-      {
-        id: res.message.id,
-        text: res.message.text,
-        sender_type: "seller",
-        sender_label: res.message.sender_label,
-        timestamp: res.message.timestamp,
-      },
-    ]);
-    fetchThreads();
+    try {
+      const res = await sendSellerChatMessage(selectedId, text);
+      sendSellerChatTyping(selectedId, false).catch(() => {});
+      setMessages((prev) => [
+        ...prev.filter((m) => m.id !== tempId),
+        {
+          id: res.message.id,
+          text: res.message.text,
+          sender_type: "seller",
+          sender_label: res.message.sender_label,
+          timestamp: res.message.timestamp,
+        },
+      ]);
+      fetchThreads();
+    } catch (error) {
+      setInput(text);
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setSendError(error instanceof Error ? error.message : "Message could not be sent.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-full space-y-6 overflow-x-hidden">
       <div>
         <div className="text-sm text-gray-500">Customer Service</div>
         <h1 className="text-xl font-semibold text-gray-900">Chat Management</h1>
@@ -207,22 +219,22 @@ export default function ChatManagementPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search customer or email..."
-            className="h-9 px-3 border border-gray-200 rounded text-sm w-full md:w-72"
+            className="h-10 w-full rounded border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 md:w-72"
           />
           <button onClick={fetchThreads} className="h-9 px-3 border border-gray-200 text-sm hover:bg-gray-50">Refresh</button>
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <div className="flex h-[520px]">
-          <div className="w-64 border-r border-gray-200">
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <div className="flex min-h-[640px] flex-col md:h-[620px] md:min-h-0 md:flex-row">
+          <div className="w-full shrink-0 border-b border-gray-200 md:w-72 md:border-b-0 md:border-r">
             <div className="px-4 py-3 border-b border-gray-200 text-sm font-medium text-gray-700">Inbox</div>
             {loading ? (
               <div className="p-4 text-sm text-gray-500">Loading chats...</div>
             ) : filteredThreads.length === 0 ? (
               <div className="p-4 text-sm text-gray-500">No chats yet.</div>
             ) : (
-              <div className="divide-y divide-gray-100">
+              <div className="max-h-64 divide-y divide-gray-100 overflow-y-auto md:max-h-none">
                 {filteredThreads.map((thread) => (
                   <button
                     key={thread.id}
@@ -233,7 +245,7 @@ export default function ChatManagementPage() {
                       <span className="font-medium text-gray-800">{thread.buyerName}</span>
                       <span className="text-xs text-gray-400">{thread.lastMessageAt}</span>
                     </div>
-                    <div className="text-xs text-gray-500 truncate">{thread.lastMessage}</div>
+                    <div className="line-clamp-2 break-words text-xs leading-5 text-gray-500">{thread.lastMessage}</div>
                     {thread.unread && <span className="inline-block mt-1 text-[10px] text-white bg-red-500 px-2 py-0.5 rounded-full">New</span>}
                   </button>
                 ))}
@@ -241,7 +253,7 @@ export default function ChatManagementPage() {
             )}
           </div>
 
-          <div className="flex-1 flex flex-col">
+          <div className="flex min-w-0 flex-1 flex-col">
             <div className="px-4 py-3 border-b border-gray-200 text-sm font-medium text-gray-700">
               {selected ? `Chat with ${selected.buyerName}` : "Select a conversation"}
             </div>
@@ -251,7 +263,7 @@ export default function ChatManagementPage() {
                   {messages.map((msg) => (
                     <div
                       key={msg.id}
-                      className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
+                      className={`max-w-[92%] overflow-hidden break-words rounded-lg px-3 py-2 text-sm leading-6 shadow-sm md:max-w-[75%] ${
                         msg.sender_type === "seller"
                           ? "ml-auto bg-orange-600 text-white"
                           : msg.sender_type === "admin"
@@ -266,7 +278,7 @@ export default function ChatManagementPage() {
                           {msg.sender_label || (msg.sender_type === "admin" ? "Customer Support" : selected?.buyerName || "Buyer")}
                         </div>
                       )}
-                      <div>{msg.text}</div>
+                      <div className="whitespace-pre-wrap break-words">{msg.text}</div>
                       <div className={`mt-1 text-xs ${
                         msg.sender_type === "seller"
                           ? "text-orange-100"
@@ -284,14 +296,25 @@ export default function ChatManagementPage() {
               )}
             </div>
             {selected && (
-              <form onSubmit={onSend} className="border-t border-gray-200 p-3 flex items-center gap-2">
-                <input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Type a reply..."
-                  className="flex-1 h-9 px-3 border border-gray-200 rounded text-sm"
-                />
-                <button className="h-9 px-4 bg-orange-600 text-white rounded text-sm hover:bg-orange-700">Send</button>
+              <form onSubmit={onSend} className="flex flex-col gap-2 border-t border-gray-200 p-3">
+                {sendError ? <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{sendError}</div> : null}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Type a reply..."
+                    rows={2}
+                    maxLength={10000}
+                    className="min-h-12 flex-1 resize-y rounded border border-gray-300 bg-white px-3 py-2 text-sm leading-6 text-gray-900 placeholder:text-gray-400 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 disabled:bg-gray-100 disabled:text-gray-500"
+                    disabled={sending}
+                  />
+                  <button
+                    className="h-12 shrink-0 rounded bg-orange-600 px-5 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-orange-300"
+                    disabled={sending || !input.trim()}
+                  >
+                    {sending ? "Sending..." : "Send"}
+                  </button>
+                </div>
               </form>
             )}
           </div>

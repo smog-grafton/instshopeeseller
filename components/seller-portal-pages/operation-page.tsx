@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
 import {
   createSellerWalletAddress,
@@ -210,10 +211,28 @@ function InfoRow({ label, value, action }: { label: string; value: string; actio
 
 function MetricCell({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="flex min-h-40 flex-col items-center justify-center border border-neutral-200 bg-white p-5 text-center">
-      <div className="text-3xl font-bold text-red-600">{value}</div>
-      <div className="mt-7 text-xl font-semibold text-black">{label}</div>
+    <div className="flex min-h-28 flex-col justify-between rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
+      <div className="break-words text-2xl font-bold text-red-600">{value}</div>
+      <div className="mt-4 text-sm font-semibold text-neutral-600">{label}</div>
     </div>
+  );
+}
+
+function QuickActionCard({ href, label, helper, icon }: { href: string; label: string; helper: string; icon: string }) {
+  return (
+    <Link
+      href={href}
+      className="group flex min-h-28 min-w-0 flex-col justify-between rounded-lg border border-neutral-200 bg-white p-4 no-underline shadow-sm transition hover:-translate-y-0.5 hover:border-red-200 hover:shadow-md"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-50 text-xl">{icon}</span>
+        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-neutral-400">Open</span>
+      </div>
+      <div>
+        <div className="truncate text-sm font-bold text-neutral-950 group-hover:text-red-600">{label}</div>
+        <div className="mt-1 line-clamp-2 text-xs leading-5 text-neutral-500">{helper}</div>
+      </div>
+    </Link>
   );
 }
 
@@ -509,6 +528,23 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
     }
   };
 
+  const accountBalance = Number(stats.account_balance ?? wallet.available_balance ?? wallet.balance ?? 0);
+  const lowBalance = accountBalance < 200;
+  const quickActions = [
+    { href: "/portal/my-shop", label: "Store Details", helper: "Update storefront profile and brand details.", icon: "S" },
+    { href: "/portal/products/my-products", label: "Store Products", helper: "Review listings, stock, and prices.", icon: "P" },
+    { href: "/portal/wholesale-centre", label: "Wholesale Center", helper: "Source products for your catalog.", icon: "W" },
+    { href: "/portal/orders/my-orders", label: "Store Orders", helper: "Process orders and shipping details.", icon: "O" },
+    { href: "/portal/wallet-management", label: "Wallet", helper: "Recharge and manage payout addresses.", icon: "$" },
+    { href: "/portal/withdraw", label: "Withdraw", helper: "Request a payout from available funds.", icon: "B" },
+    { href: "/portal/my-message", label: "Messages", helper: "Reply to customers and support.", icon: "M" },
+    { href: "/portal/site-message", label: "Site Messages", helper: "Read platform notices and alerts.", icon: "N" },
+    { href: "/portal/customer-service/chat-management?support=1", label: "Customer Support", helper: "Open a support conversation.", icon: "H" },
+    { href: "/portal/my-account", label: "Account Security", helper: "Manage login and transaction passwords.", icon: "K" },
+    { href: "/portal/orders/shipping-setting", label: "Processing Rules", helper: "Review delivery and processing setup.", icon: "R" },
+    { href: "/terms-of-service", label: "Terms & Policies", helper: "Review marketplace operating rules.", icon: "T" },
+  ];
+
   return (
     <div className="mx-auto max-w-7xl space-y-7 pb-12">
       <PageHeader title={titles[kind]} onRefresh={load} />
@@ -516,7 +552,7 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
       {loading ? <div className={`${panel} p-6 text-sm text-neutral-500`}>Loading...</div> : null}
 
       {!loading && kind === "account" ? (
-        <div className="grid gap-6">
+        <div className="grid gap-5">
           <ReviewStatusPanel status={user?.sellerStatus} />
           {account.has_invitation_code ? null : (
             <section className={`${panel} border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900`}>
@@ -535,58 +571,109 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
               </button>
             </section>
           )}
-          <section className={`${panel} p-5`}>
-            <InfoRow
-              label="Username:"
-              value={formatValue(account.username, "Not set")}
-              action={<button className="text-sm font-semibold text-red-700" onClick={() => {
-                setUsernameForm(formatValue(account.username, ""));
-                setAccountModal("username");
-              }}>{account.username ? "To modify" : "Add"}</button>}
-            />
-            <InfoRow label="Store name:" value={formatValue(account.store_name, "Store")} />
-            <InfoRow label="ID:" value={formatValue(account.store_id, "Not assigned")} />
-            <InfoRow
-              label="Invitation code:"
-              value={formatValue(account.invitation_code, "Not added")}
-              action={account.has_invitation_code ? undefined : <button className="text-sm font-semibold text-red-700" onClick={() => {
-                setInvitationCodeForm("");
-                setAccountModal("invitation-code");
-              }}>Add</button>}
-            />
-            <InfoRow
-              label="Phone number:"
-              value={account.phone ? String(account.phone) : "Not bound"}
-              action={<button className="text-sm font-semibold text-red-700" onClick={() => setAccountModal("phone")}>{account.phone ? "To modify" : "Go to binding"}</button>}
-            />
-            <InfoRow
-              label="eMail:"
-              value={maskEmail(formatValue(account.email, ""))}
-              action={<button className="text-sm font-semibold text-red-700" onClick={() => setAccountModal("email")}>{account.email ? "To modify" : "Go to binding"}</button>}
-            />
-            <InfoRow
-              label="Login password:"
-              value="******"
-              action={<button className="text-sm font-semibold text-red-700" onClick={() => setAccountModal("login-password")}>To modify</button>}
-            />
-            <InfoRow
-              label="Transaction password:"
-              value="******"
-              action={<button className="text-sm font-semibold text-red-700" onClick={() => setAccountModal("transaction-password")}>{account.transaction_password_bound ? "To modify" : "Go to binding"}</button>}
-            />
+          <section className="overflow-hidden rounded-lg border border-red-100 bg-gradient-to-br from-red-600 via-red-500 to-orange-500 text-white shadow-lg">
+            <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
+              <div className="min-w-0">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/15 text-2xl font-bold ring-1 ring-white/25">
+                    {formatValue(account.store_name, "S").slice(0, 1).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-2xl font-bold">{formatValue(account.store_name, "Shopee Seller")}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-white/85">
+                      <span>Seller ID: {formatValue(account.store_id, "Pending")}</span>
+                      <span className="rounded-full bg-white/15 px-2 py-1 text-xs font-semibold">
+                        {user?.sellerStatus || "review"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {lowBalance ? (
+                  <div className="mt-5 rounded-lg border border-white/20 bg-white/12 p-3 text-sm leading-6">
+                    Your balance is low. Recharge to continue processing orders smoothly.
+                  </div>
+                ) : null}
+              </div>
+              <div className="rounded-lg bg-white p-4 text-neutral-950 shadow-sm">
+                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">Wallet Balance</div>
+                <div className="mt-2 text-3xl font-bold text-red-600">{money(accountBalance, walletCurrency)}</div>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Link href="/portal/wallet-management" className="inline-flex h-11 items-center justify-center rounded bg-red-600 px-4 text-sm font-semibold text-white no-underline">
+                    Recharge
+                  </Link>
+                  <Link href="/portal/withdraw" className="inline-flex h-11 items-center justify-center rounded border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-800 no-underline">
+                    Withdraw
+                  </Link>
+                </div>
+              </div>
+            </div>
           </section>
 
-          <section>
-            <div className="grid md:grid-cols-3">
-              <MetricCell label="Number of Products" value={formatValue(stats.products)} />
-              <MetricCell label="Total sales today" value={formatValue(stats.total_sales_today)} />
-              <MetricCell label="Total sales" value={formatValue(stats.total_sales)} />
-              <MetricCell label="Today's order" value={formatValue(stats.today_order_count)} />
-              <MetricCell label="Cumulative order quantity" value={formatValue(stats.cumulative_order_quantity)} />
-              <MetricCell label="Sales profit" value={formatValue(stats.sales_profit)} />
-              <MetricCell label="Number of followers" value={formatValue(stats.followers)} />
-              <MetricCell label="Today's profit" value={formatValue(stats.today_profit)} />
-              <MetricCell label="Account Balance" value={formatValue(stats.account_balance)} />
+          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {quickActions.map((item) => (
+              <QuickActionCard key={item.href} {...item} />
+            ))}
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className={`${panel} rounded-lg p-5`}>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-lg font-bold text-neutral-950">Order Summary</div>
+                  <div className="text-sm text-neutral-500">Next actions across active orders</div>
+                </div>
+                <Link href="/portal/orders/my-orders" className="text-sm font-semibold text-red-600 no-underline">View orders</Link>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <MetricCell label="Pending processing" value={formatValue(stats.today_order_count)} />
+                <MetricCell label="Processing" value={formatValue(stats.total_sales_today)} />
+                <MetricCell label="Awaiting confirmation" value={formatValue(stats.cumulative_order_quantity)} />
+                <MetricCell label="Completed" value={formatValue(stats.total_sales)} />
+                <MetricCell label="Frozen" value={formatValue(stats.frozen_orders)} />
+                <MetricCell label="Refund / after-sales" value={formatValue(stats.refund_orders)} />
+              </div>
+            </div>
+
+            <div className={`${panel} rounded-lg p-5`}>
+              <div className="mb-4">
+                <div className="text-lg font-bold text-neutral-950">Wallet Summary</div>
+                <div className="text-sm text-neutral-500">Funds available for processing and payouts</div>
+              </div>
+              <div className="grid gap-3">
+                <MetricCell label="Available balance" value={money(accountBalance, walletCurrency)} />
+                <MetricCell label="Pending withdrawal" value={money(stats.pending_withdrawal, walletCurrency)} />
+                <MetricCell label="Locked processing funds" value={money(stats.locked_processing_funds, walletCurrency)} />
+                <MetricCell label="Today's profit" value={money(stats.today_profit, walletCurrency)} />
+                <MetricCell label="Total profit" value={money(stats.sales_profit, walletCurrency)} />
+              </div>
+            </div>
+          </section>
+
+          <section className={`${panel} rounded-lg p-5`}>
+            <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
+              <div>
+                <div className="text-lg font-bold text-neutral-950">Account Security</div>
+                <div className="mt-2 divide-y divide-neutral-100">
+                  <InfoRow label="Username" value={formatValue(account.username, "Not set")} action={<button className="text-sm font-semibold text-red-700" onClick={() => {
+                    setUsernameForm(formatValue(account.username, ""));
+                    setAccountModal("username");
+                  }}>{account.username ? "Modify" : "Add"}</button>} />
+                  <InfoRow label="Phone number" value={account.phone ? String(account.phone) : "Not bound"} action={<button className="text-sm font-semibold text-red-700" onClick={() => setAccountModal("phone")}>{account.phone ? "Modify" : "Bind"}</button>} />
+                  <InfoRow label="Email" value={maskEmail(formatValue(account.email, ""))} action={<button className="text-sm font-semibold text-red-700" onClick={() => setAccountModal("email")}>{account.email ? "Modify" : "Bind"}</button>} />
+                  <InfoRow label="Login password" value="******" action={<button className="text-sm font-semibold text-red-700" onClick={() => setAccountModal("login-password")}>Modify</button>} />
+                  <InfoRow label="Transaction password" value="******" action={<button className="text-sm font-semibold text-red-700" onClick={() => setAccountModal("transaction-password")}>{account.transaction_password_bound ? "Modify" : "Bind"}</button>} />
+                </div>
+              </div>
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-5">
+                <div className="text-lg font-bold text-neutral-950">Need help processing orders?</div>
+                <p className="mt-2 text-sm leading-6 text-neutral-600">
+                  Shopee Support can help with frozen orders, wallet funding, processing deadlines, and payout reviews.
+                </p>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <Link href="/portal/my-message?support=1" className="inline-flex h-11 items-center justify-center rounded bg-red-600 px-4 text-sm font-semibold text-white no-underline">Contact support</Link>
+                  <Link href="/terms-of-service" className="inline-flex h-11 items-center justify-center rounded border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-800 no-underline">Review seller policy</Link>
+                </div>
+              </div>
             </div>
           </section>
         </div>
@@ -776,10 +863,38 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
       ) : null}
 
       {!loading && kind === "current-balance" ? (
-        <div className="grid gap-4 md:grid-cols-3">
-          <MetricCell label="Available balance" value={money(wallet.available_balance, walletCurrency)} />
-          <MetricCell label="Pending balance" value={money(wallet.pending_balance, walletCurrency)} />
-          <MetricCell label="Total balance" value={money(wallet.balance, walletCurrency)} />
+        <div className="grid gap-4">
+          {Number(wallet.available_balance ?? wallet.balance ?? 0) < 200 ? (
+            <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
+              <div className="text-base font-bold">Low Balance</div>
+              <p className="mt-1 text-sm leading-6">Your balance is low. Recharge to continue processing orders smoothly.</p>
+              <Link href="/portal/wallet-management" className="mt-3 inline-flex h-11 items-center justify-center rounded bg-red-600 px-5 text-sm font-semibold text-white no-underline">
+                Recharge
+              </Link>
+            </section>
+          ) : null}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <MetricCell label="Available balance" value={money(wallet.available_balance, walletCurrency)} />
+            <MetricCell label="Locked / pending balance" value={money(wallet.pending_balance, walletCurrency)} />
+            <MetricCell label="Pending withdrawal" value={money(wallet.pending_withdrawal, walletCurrency)} />
+            <MetricCell label="Total balance" value={money(wallet.balance, walletCurrency)} />
+          </div>
+          <section className={`${panel} rounded-lg p-5`}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-lg font-bold text-neutral-950">Wallet actions</div>
+                <div className="mt-1 text-sm text-neutral-500">Recharge before processing high-value orders and withdraw completed payouts when ready.</div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:flex">
+                <Link href="/portal/wallet-management" className="inline-flex h-11 items-center justify-center rounded bg-red-600 px-5 text-sm font-semibold text-white no-underline">
+                  Recharge
+                </Link>
+                <Link href="/portal/withdraw" className="inline-flex h-11 items-center justify-center rounded border border-neutral-300 bg-white px-5 text-sm font-semibold text-neutral-800 no-underline">
+                  Withdraw
+                </Link>
+              </div>
+            </div>
+          </section>
         </div>
       ) : null}
 
