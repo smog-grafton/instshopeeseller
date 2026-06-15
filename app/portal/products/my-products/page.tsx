@@ -10,7 +10,7 @@ import {
   type SellerProduct,
   type SellerProductSettings,
 } from "@/lib/api-client";
-import { isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
+import { formatCurrencyAmount, isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
 import Image from "next/image";
 
 export default function MyProductsPage() {
@@ -125,7 +125,7 @@ export default function MyProductsPage() {
             Refresh
           </button>
           <div className="ml-auto text-sm text-gray-500">
-            Wallet: {currency} {(walletBalance ?? 0).toFixed(2)}
+            Wallet: {formatCurrencyAmount(walletBalance ?? 0, currency)}
           </div>
         </div>
       </div>
@@ -167,7 +167,7 @@ export default function MyProductsPage() {
                     {product.catalog_link && <span className="text-blue-600">Catalog</span>}
                   </div>
                   </div>
-                  <div className="text-sm text-gray-700 w-24 text-right">{currency} {Number(product.price).toFixed(2)}</div>
+                  <div className="text-sm text-gray-700 w-24 text-right">{formatCurrencyAmount(product.price, currency)}</div>
                   <div className="text-sm text-gray-500 w-28 text-right">ID #{product.id}</div>
                   <div className="flex items-center gap-2 text-sm">
                     <Link

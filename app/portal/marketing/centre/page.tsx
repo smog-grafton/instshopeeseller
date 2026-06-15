@@ -58,7 +58,7 @@ export default function MarketingCentrePage() {
             <div className="text-sm font-semibold text-gray-800 mb-3">Campaign Types</div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
               {[
-                { key: "ads", label: "Shopee Ads", href: "/portal/marketing/ads" },
+                { key: "ads", label: "InstShopee Ads", href: "/portal/marketing/ads" },
                 { key: "discount", label: "Discount", href: "/portal/marketing/discount" },
                 { key: "campaign", label: "Campaign", href: "/portal/marketing/campaign" },
                 { key: "affiliate", label: "Affiliate", href: "/portal/marketing/affiliate" },

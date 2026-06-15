@@ -42,7 +42,7 @@ export default function CheapestOnShopeePage() {
     <div className="space-y-6">
       <div>
         <div className="text-sm text-gray-500">Marketing Centre</div>
-        <h1 className="text-xl font-semibold text-gray-900">Cheapest on Shopee</h1>
+        <h1 className="text-xl font-semibold text-gray-900">Smart Price Picks</h1>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg">

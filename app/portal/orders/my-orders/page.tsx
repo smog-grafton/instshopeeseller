@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { getSellerOrders, updateSellerOrderStatus } from "@/lib/api-client";
-import { isBackendImage } from "@/lib/utils";
+import { isBackendImage, normalizeCurrencySymbol } from "@/lib/utils";
 
 type ShippingAddress = {
   fullName?: string;
@@ -33,6 +33,11 @@ type OrderRecord = {
   seller_payout?: number | null;
   seller_shipping_fee?: number | null;
   currency_symbol?: string | null;
+  processing_deadline_at?: string | null;
+  processing_deadline_at_display?: string | null;
+  frozen_at?: string | null;
+  frozen_reason?: string | null;
+  is_frozen?: boolean;
   shipping_address_snapshot?: ShippingAddress;
   shipping_provider?: string | null;
   tracking_number?: string | null;
@@ -47,13 +52,14 @@ const STATUS_TABS = [
   { key: "awaiting-receipt", label: "Awaiting receipt", statuses: "SHIPPED" },
   { key: "be-evaluated", label: "Be evaluated", statuses: "DELIVERED" },
   { key: "completed", label: "Completed", statuses: "DELIVERED" },
+  { key: "frozen", label: "Frozen", statuses: "FROZEN" },
   { key: "refund-after-sales", label: "Refund/After-sales", statuses: "CANCELLED" },
 ] as const;
 
 type StatusTabKey = (typeof STATUS_TABS)[number]["key"];
 
 const formatMoney = (amount: number, currencySymbol = "$") =>
-  `${currencySymbol}${Number(amount || 0).toFixed(2)}`;
+  `${normalizeCurrencySymbol(currencySymbol)}${Number(amount || 0).toFixed(2)}`;
 
 export default function SellerOrdersPage() {
   const [loading, setLoading] = useState(true);
@@ -192,7 +198,9 @@ export default function SellerOrdersPage() {
                       <span className="font-medium text-gray-800">{order.order_number}</span>
                       <span className="ml-3 text-xs text-gray-500">{new Date(order.created_at).toLocaleString()}</span>
                     </div>
-                    <div className="w-fit bg-gray-100 px-2 py-0.5 text-xs text-gray-700">{order.status}</div>
+                    <div className={`w-fit px-2 py-0.5 text-xs ${order.status === "FROZEN" ? "bg-red-50 text-red-700" : "bg-gray-100 text-gray-700"}`}>
+                      {order.status === "FROZEN" ? "FROZEN - SUPPORT REQUIRED" : order.status}
+                    </div>
                   </div>
 
                   <div className="text-xs text-gray-500">
@@ -229,7 +237,7 @@ export default function SellerOrdersPage() {
                   </div>
 
                   {(() => {
-                    const currencySymbol = order.currency_symbol || "$";
+                    const currencySymbol = normalizeCurrencySymbol(order.currency_symbol || "$");
                     const sellerShippingFee = Number(order.seller_shipping_fee ?? order.shipping_subtotal ?? 0);
                     const reservedOnShip = Number(order.fulfillment_cost ?? 0);
                     const expectedProfit = Number(
@@ -252,7 +260,7 @@ export default function SellerOrdersPage() {
                             </div>
                           </div>
                           <div>
-                            <div className="uppercase tracking-wide text-[11px] text-gray-500">Reserved on ship</div>
+                            <div className="uppercase tracking-wide text-[11px] text-gray-500">Processing reserve</div>
                             <div className="mt-1 text-sm font-semibold text-gray-900">
                               {formatMoney(reservedOnShip, currencySymbol)}
                             </div>
@@ -266,7 +274,12 @@ export default function SellerOrdersPage() {
                         </div>
                         {sellerShippingFee > 0 && (
                           <div className="mt-2 text-xs text-amber-900">
-                            Shipping is covered by the shop on this order and is reserved from the seller wallet when you mark it shipped.
+                            Shipping is covered by the shop on this order and is reserved from the seller wallet when you process it for delivery.
+                          </div>
+                        )}
+                        {order.processing_deadline_at_display && order.status !== "SHIPPED" && order.status !== "DELIVERED" && (
+                          <div className="mt-2 text-xs text-amber-900">
+                            Process by {new Date(order.processing_deadline_at_display).toLocaleString()} to keep this order active.
                           </div>
                         )}
                       </div>
@@ -303,10 +316,15 @@ export default function SellerOrdersPage() {
                             className="h-8 px-3 bg-red-600 text-white text-xs hover:bg-red-700"
                           >
                             {Number(order.fulfillment_cost || 0) > 0
-                              ? `Ship & Reserve ${formatMoney(Number(order.fulfillment_cost || 0), order.currency_symbol || "$")}`
-                              : "Mark Shipped"}
+                              ? `Process Order ${formatMoney(Number(order.fulfillment_cost || 0), order.currency_symbol || "$")}`
+                              : "Process Order"}
                           </button>
                         </>
+                      )}
+                      {order.status === "FROZEN" && (
+                        <span className="rounded border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700">
+                          Contact Shopee Support to unlock this order.
+                        </span>
                       )}
                       {order.status === "SHIPPED" && (
                         <span className="rounded border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">

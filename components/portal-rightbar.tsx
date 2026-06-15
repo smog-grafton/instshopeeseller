@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getNotifications, getSellerSiteMessages } from "@/lib/api-client";
+import { getNotifications, getSellerSiteMessages, markSellerSiteMessageSeen } from "@/lib/api-client";
 
-const SUPPORT_EMAIL = "shopeecustomerservice58@gmail.com";
+const SUPPORT_EMAIL = "support@instshopee.com";
 
 type NotificationItem = {
   id: string;
@@ -18,6 +18,8 @@ type SiteMessageItem = {
   title?: string;
   message?: string;
   sent_at?: string;
+  category?: string;
+  show_popup?: boolean;
 };
 
 export default function PortalRightbar() {
@@ -28,6 +30,27 @@ export default function PortalRightbar() {
   const [showChatTooltip, setShowChatTooltip] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [popupMessage, setPopupMessage] = useState<SiteMessageItem | null>(null);
+
+  useEffect(() => {
+    getSellerSiteMessages(1)
+      .then((res) => {
+        const siteMessages: SiteMessageItem[] = Array.isArray(res.messages?.data) ? res.messages.data : [];
+        const nextPopup = siteMessages.find((message) => message.show_popup);
+        if (nextPopup) {
+          setPopupMessage(nextPopup);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const closePopupMessage = () => {
+    const messageId = popupMessage?.id;
+    setPopupMessage(null);
+    if (messageId != null) {
+      markSellerSiteMessageSeen(messageId).catch(() => {});
+    }
+  };
 
   useEffect(() => {
     if (!showNotificationPanel) return;
@@ -79,7 +102,7 @@ export default function PortalRightbar() {
             )}
           </div>
 
-          {/* Support / Contact Shopee Icon */}
+          {/* Support / Contact InstShopee Icon */}
           <div className="relative mb-1">
             <button
               type="button"
@@ -87,7 +110,7 @@ export default function PortalRightbar() {
               onMouseEnter={() => setShowSupportTooltip(true)}
               onMouseLeave={() => setShowSupportTooltip(false)}
               className="flex items-center justify-center w-12 h-12 cursor-pointer hover:bg-gray-50 transition-colors rounded relative"
-              aria-label={`Contact Shopee at ${SUPPORT_EMAIL}`}
+              aria-label={`Contact InstShopee Support at ${SUPPORT_EMAIL}`}
             >
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-8 h-8">
                 <path fillRule="evenodd" clipRule="evenodd" d="M25.503 19.0641V14.6286C24.8376 9.97631 20.8366 6.4 16.0002 6.4C11.2647 6.4 7.32995 9.82885 6.54336 14.3393V19.1577C6.54336 19.6229 6.16623 20 5.70102 20C4.17801 20 2.94336 18.7654 2.94336 17.2423V15.7577C2.94336 14.3329 4.0238 13.1605 5.41002 13.0152C6.71087 8.3904 10.9596 5 16.0002 5C21.0366 5 25.2825 8.38471 26.5872 13.0035C28.2106 13.0808 29.503 14.4215 29.503 16.0641V16.9359C29.503 18.6282 28.1312 20 26.439 20C25.9221 20 25.503 19.581 25.503 19.0641ZM17.8731 26.1226C17.8731 25.4322 17.3135 24.8726 16.6231 24.8726H15.1231C14.4328 24.8726 13.8731 25.4322 13.8731 26.1226C13.8731 26.8129 14.4328 27.3726 15.1231 27.3726H16.6231C17.3135 27.3726 17.8731 26.8129 17.8731 26.1226Z" fill="#EE4D2D" />
@@ -176,6 +199,28 @@ export default function PortalRightbar() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {popupMessage && (
+        <div className="fixed inset-0 z-[70] flex items-start justify-center bg-black/35 px-4 pt-24">
+          <div className="w-full max-w-sm overflow-hidden rounded-lg bg-white shadow-2xl">
+            <div className="flex items-center justify-between bg-gradient-to-r from-orange-500 to-rose-500 px-4 py-3 text-white">
+              <div className="text-sm font-semibold">Unread message</div>
+              <button
+                type="button"
+                onClick={closePopupMessage}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30"
+                aria-label="Close message"
+              >
+                ×
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <div className="text-center text-sm font-semibold text-gray-900">{popupMessage.title || popupMessage.category || "System information"}</div>
+              <div className="mt-4 whitespace-pre-wrap text-sm leading-6 text-gray-700">{popupMessage.message}</div>
+              {popupMessage.sent_at && <div className="mt-4 text-xs text-gray-400">{popupMessage.sent_at}</div>}
+            </div>
           </div>
         </div>
       )}

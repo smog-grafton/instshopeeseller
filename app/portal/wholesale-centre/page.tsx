@@ -11,7 +11,7 @@ import {
   getWallet,
   type SellerProductSettings,
 } from "@/lib/api-client";
-import { isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
+import { formatCurrencyAmount, isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
 
 type CatalogImage = {
   image_path: string;
@@ -51,12 +51,6 @@ const PRICE_RANGE_OPTIONS: PriceRangeOption[] = [
   { id: "6001-9000", label: "6,001 - 9,000", min: 6001, max: 9000 },
   { id: "9000+", label: "More than 9,000", min: 9001 },
 ];
-
-function formatMoney(value: number | string | null | undefined) {
-  const amount = Number(value ?? 0);
-  if (!Number.isFinite(amount)) return "0.00";
-  return amount.toFixed(2);
-}
 
 function formatCategoryLabel(value: string) {
   return value
@@ -398,7 +392,7 @@ export default function WholesaleCentrePage() {
           <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
             <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">Wallet</div>
             <div className="mt-1 text-lg font-semibold text-gray-900">
-              {currency} {walletBalance.toFixed(2)}
+              {formatCurrencyAmount(walletBalance, currency)}
             </div>
           </div>
         </div>
@@ -533,7 +527,7 @@ export default function WholesaleCentrePage() {
                         <div className="mt-auto">
                           <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">Shop price</div>
                           <div className="mt-1 text-sm font-semibold text-gray-900 sm:text-base">
-                            {currency} {formatMoney(product.base_price)}
+                            {formatCurrencyAmount(product.base_price, currency)}
                           </div>
                         </div>
                       </div>
@@ -708,19 +702,19 @@ export default function WholesaleCentrePage() {
                   <div>
                     <div className="text-xs text-gray-500">Shop price</div>
                     <div className="text-xl font-semibold text-gray-900">
-                      {currency} {formatMoney(selectedProduct?.base_price)}
+                      {formatCurrencyAmount(selectedProduct?.base_price, currency)}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-gray-500">Supplier cost</div>
                     <div className="text-sm font-semibold text-gray-900">
-                      {currency} {formatMoney(selectedProduct?.wholesale_price)}
+                      {formatCurrencyAmount(selectedProduct?.wholesale_price, currency)}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-gray-500">Shipping fee</div>
                     <div className="text-sm font-semibold text-gray-900">
-                      {currency} {formatMoney(selectedProduct?.shipping_fee)}
+                      {formatCurrencyAmount(selectedProduct?.shipping_fee, currency)}
                     </div>
                   </div>
                   <div>

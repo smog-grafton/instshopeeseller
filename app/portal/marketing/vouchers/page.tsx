@@ -93,7 +93,7 @@ export default function VouchersPage() {
           <input
             value={form.title}
             onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-            placeholder="Title (e.g. RM6 off)"
+            placeholder="Title (e.g. $6 off)"
             className="h-9 px-3 border border-gray-200 rounded text-sm"
           />
           <input
@@ -105,7 +105,7 @@ export default function VouchersPage() {
           <input
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-            placeholder="Description (e.g. Min Spend RM60)"
+            placeholder="Description (e.g. Min Spend $60)"
             className="h-9 px-3 border border-gray-200 rounded text-sm md:col-span-2"
           />
           <input

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatCurrencyAmount, normalizeCurrencySymbol } from "@/lib/utils";
 
 export type SellerWalletWidgetProps = {
   /** Raw balance from API */
@@ -15,11 +16,11 @@ export type SellerWalletWidgetProps = {
 function formatBalanceParts(
   balance: number | string | null | undefined,
   currency: string | null | undefined
-): { code: string; amount: string } {
-  const code = (currency || "USD").toUpperCase();
+): { symbol: string; amount: string } {
+  const symbol = normalizeCurrencySymbol(currency || "USD");
   const num = Number(balance ?? 0);
   const amount = Number.isNaN(num) ? "0.00" : num.toFixed(2);
-  return { code, amount };
+  return { symbol, amount };
 }
 
 function formatAmount(balance: number | string | null | undefined): string {
@@ -41,15 +42,15 @@ export function SellerWalletWidget({
   fundingNeeded,
   topUpHref = "/portal/finance/my-balance",
 }: SellerWalletWidgetProps) {
-  const { code, amount } = formatBalanceParts(balance, currency);
+  const { symbol, amount } = formatBalanceParts(balance, currency);
   const available = formatAmount(availableBalance ?? balance);
   const pending = formatAmount(pendingBalance);
   const funding = Number(fundingNeeded ?? 0);
   const availableNumber = Number(availableBalance ?? balance ?? 0);
   const shortfall = Math.max(funding - (Number.isNaN(availableNumber) ? 0 : availableNumber), 0);
   const fundingCovered = funding <= 0 || shortfall <= 0;
-  const fundingDisplay = `${code} ${funding.toFixed(2)}`;
-  const shortfallDisplay = `${code} ${shortfall.toFixed(2)}`;
+  const fundingDisplay = formatCurrencyAmount(funding, currency);
+  const shortfallDisplay = formatCurrencyAmount(shortfall, currency);
 
   return (
     <div
@@ -69,10 +70,7 @@ export function SellerWalletWidget({
               <>
                 <div className="mt-1 flex flex-wrap items-end gap-x-2 gap-y-1">
                   <span className="text-[2rem] font-semibold leading-none tabular-nums text-neutral-900">
-                    {amount}
-                  </span>
-                  <span className="pb-1 text-sm font-medium uppercase tracking-wide text-neutral-500">
-                    {code}
+                    {symbol}{amount}
                   </span>
                 </div>
                 <p className="mt-1 text-xs leading-5 text-neutral-600">

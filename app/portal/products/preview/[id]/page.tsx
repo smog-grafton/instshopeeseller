@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { getSellerProduct } from "@/lib/api-client";
-import { isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
+import { formatCurrencyAmount, isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
 import Image from "next/image";
 
 export default function ProductPreviewPage() {
@@ -33,8 +33,8 @@ export default function ProductPreviewPage() {
 
   const images = product.images || [];
   const gallery = images.length ? images : [{ image_path: product.thumbnail_url }];
-  const price = Number(product.price || 0).toFixed(2);
-  const original = product.original_price ? Number(product.original_price).toFixed(2) : null;
+  const price = formatCurrencyAmount(product.price);
+  const original = product.original_price ? formatCurrencyAmount(product.original_price) : null;
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-6">
@@ -82,8 +82,8 @@ export default function ProductPreviewPage() {
             <span>Stock: {product.stock ?? 0}</span>
           </div>
           <div className="flex items-end gap-3">
-            <div className="text-3xl font-bold text-orange-600">RM {price}</div>
-            {original && <div className="text-sm text-gray-400 line-through">RM {original}</div>}
+            <div className="text-3xl font-bold text-orange-600">{price}</div>
+            {original && <div className="text-sm text-gray-400 line-through">{original}</div>}
           </div>
 
           <div className="border-t pt-4 space-y-3">

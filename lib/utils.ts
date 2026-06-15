@@ -20,6 +20,28 @@ export function resolveBackendAssetUrl(path: string | null | undefined): string 
   return `${apiBaseUrl}/storage/${path}`;
 }
 
+export function normalizeCurrencySymbol(currency: string | null | undefined = "$"): string {
+  const value = String(currency || "$").trim();
+  if (!value) return "$";
+
+  const upper = value.toUpperCase();
+  if (upper === "USD" || upper === "$" || upper === "MYR" || upper === "RM") {
+    return "$";
+  }
+
+  return value;
+}
+
+export function formatCurrencyAmount(
+  value: number | string | null | undefined,
+  currency: string | null | undefined = "$"
+): string {
+  const amount = Number(value ?? 0);
+  const safeAmount = Number.isFinite(amount) ? amount : 0;
+
+  return `${normalizeCurrencySymbol(currency)}${safeAmount.toFixed(2)}`;
+}
+
 export function getBuyerBaseUrl(): string {
   const configured = trimTrailingSlash(process.env.NEXT_PUBLIC_BUYER_URL ?? "");
   if (configured) return configured;

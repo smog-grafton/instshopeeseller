@@ -576,6 +576,13 @@ export async function getSellerSiteMessages(page = 1) {
   return apiFetch<{ success: boolean; messages: any }>(`/seller/site-messages?page=${page}`);
 }
 
+export async function markSellerSiteMessageSeen(messageId: number | string) {
+  return apiFetch<{ success: boolean; message: any }>(`/seller/site-messages/${messageId}/seen`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
 export async function getSellerBillingRecords(page = 1) {
   return apiFetch<{ success: boolean; records: any }>(`/seller/finance/billing-records?page=${page}`);
 }

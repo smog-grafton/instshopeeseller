@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Seller Centre - Shopee",
-  description: "Manage your shop on Shopee",
+  title: "Shopee Seller Centre",
+  description: "Manage and grow your shop on Shopee",
 };
 
 export default function RootLayout({

@@ -13,6 +13,7 @@ import {
   type ApiUiBlock,
 } from "@/lib/api-client";
 import { SellerWalletWidget } from "@/components/seller-wallet-widget";
+import { formatCurrencyAmount } from "@/lib/utils";
 
 type SellerWalletSummary = {
   balance?: number | string | null;
@@ -123,7 +124,7 @@ function asNumber(value: number | string | null | undefined): number {
 }
 
 function formatMoney(value: number | string | null | undefined, currency = "USD"): string {
-  return `${currency} ${asNumber(value).toFixed(2)}`;
+  return formatCurrencyAmount(asNumber(value), currency);
 }
 
 function formatMetricValue(value: string | number, currency?: string): string {

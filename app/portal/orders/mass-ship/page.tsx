@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { bulkShipOrders, getSellerOrders } from "@/lib/api-client";
-import { isBackendImage } from "@/lib/utils";
+import { formatCurrencyAmount, isBackendImage } from "@/lib/utils";
 
 export default function MassShipPage() {
   const [loading, setLoading] = useState(true);
@@ -40,7 +40,7 @@ export default function MassShipPage() {
     <div className="space-y-6">
       <div>
         <div className="text-sm text-gray-500">Order</div>
-        <h1 className="text-xl font-semibold text-gray-900">Mass Ship</h1>
+        <h1 className="text-xl font-semibold text-gray-900">Mass Process Orders</h1>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
@@ -57,7 +57,7 @@ export default function MassShipPage() {
             disabled={selected.length === 0}
             className="h-9 px-4 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 disabled:opacity-50"
           >
-            Mark {selected.length} order(s) shipped
+            Process {selected.length} order(s)
           </button>
         </div>
       </div>
@@ -100,7 +100,7 @@ export default function MassShipPage() {
                     placeholder="Tracking number"
                     className="h-8 px-2 border border-gray-200 rounded text-xs w-44"
                   />
-                  <div className="text-xs text-gray-500">Total: {Number(order.total_payment).toFixed(2)}</div>
+                  <div className="text-xs text-gray-500">Total: {formatCurrencyAmount(order.total_payment, order.currency_symbol)}</div>
                 </div>
               );
             })}

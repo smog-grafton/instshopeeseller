@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getSellerAnalyticsOverview, getWallet } from "@/lib/api-client";
+import { formatCurrencyAmount } from "@/lib/utils";
 
 export default function BusinessInsightsPage() {
   const [loading, setLoading] = useState(true);
@@ -37,7 +38,7 @@ export default function BusinessInsightsPage() {
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <div className="text-xs text-gray-500">Total Revenue (All time)</div>
               <div className="text-2xl font-semibold text-gray-900">
-                {currency} {(overview?.total_revenue ?? 0).toFixed(2)}
+                {formatCurrencyAmount(overview?.total_revenue ?? 0, currency)}
               </div>
             </div>
             <div className="bg-white border border-gray-200 rounded-lg p-4">
@@ -60,7 +61,7 @@ export default function BusinessInsightsPage() {
                   daily.map((row) => (
                     <div key={row.date} className="flex items-center justify-between py-2 text-sm">
                       <div className="text-gray-600">{row.date}</div>
-                      <div className="text-gray-800">{currency} {Number(row.revenue).toFixed(2)}</div>
+                      <div className="text-gray-800">{formatCurrencyAmount(row.revenue, currency)}</div>
                       <div className="text-gray-500">{row.items} items</div>
                     </div>
                   ))
@@ -77,7 +78,7 @@ export default function BusinessInsightsPage() {
                   topProducts.map((p) => (
                     <div key={p.id} className="text-sm">
                       <div className="text-gray-800 truncate">{p.title}</div>
-                      <div className="text-xs text-gray-500">{p.units} units • {currency} {Number(p.revenue).toFixed(2)}</div>
+                      <div className="text-xs text-gray-500">{p.units} units • {formatCurrencyAmount(p.revenue, currency)}</div>
                     </div>
                   ))
                 )}

@@ -44,6 +44,104 @@ type ApiErrorWithFields = Error & {
   errors?: Record<string, string[]>;
 };
 
+function IdentityCardMock({ side }: { side: "front" | "back" | "selfie" }) {
+  const isSelfie = side === "selfie";
+
+  return (
+    <svg viewBox="0 0 360 228" role="img" aria-label={`${side} upload guide`} className="h-full w-full">
+      <rect width="360" height="228" rx="18" fill="#fff7ed" />
+      <rect x="22" y="28" width="316" height="172" rx="14" fill="#ffffff" stroke="#fed7aa" strokeWidth="3" />
+      {isSelfie ? (
+        <>
+          <circle cx="132" cy="94" r="32" fill="#fdba74" />
+          <path d="M78 171c10-34 28-51 54-51s44 17 54 51" fill="#fed7aa" />
+          <rect x="206" y="71" width="92" height="62" rx="10" fill="#ffedd5" stroke="#fb923c" strokeWidth="3" />
+          <path d="M222 91h60M222 107h44" stroke="#fb923c" strokeWidth="6" strokeLinecap="round" />
+          <circle cx="252" cy="161" r="18" fill="#fb923c" />
+          <path d="M244 161h16M252 153v16" stroke="#fff7ed" strokeWidth="5" strokeLinecap="round" />
+        </>
+      ) : (
+        <>
+          <rect x="48" y="58" width="80" height="96" rx="10" fill="#fdba74" />
+          <circle cx="88" cy="91" r="20" fill="#fff7ed" />
+          <path d="M60 139c7-21 16-31 28-31s21 10 28 31" fill="#ffedd5" />
+          <path d="M158 73h126M158 99h98M158 125h126M158 151h72" stroke="#fb923c" strokeWidth="9" strokeLinecap="round" />
+          {side === "back" && <path d="M48 178h236" stroke="#f97316" strokeWidth="9" strokeLinecap="round" />}
+        </>
+      )}
+    </svg>
+  );
+}
+
+function DocumentUploadCard({
+  id,
+  label,
+  required,
+  helper,
+  file,
+  previewUrl,
+  existing,
+  side,
+  onChange,
+  onClear,
+}: {
+  id: string;
+  label: string;
+  required?: boolean;
+  helper: string;
+  file: File | null;
+  previewUrl: string | null;
+  existing?: boolean;
+  side: "front" | "back" | "selfie";
+  onChange: (file: File | null) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="flex items-start mb-6">
+      <label htmlFor={id} className="w-[200px] flex items-center justify-end min-h-8 mr-4 text-sm text-right flex-shrink-0 leading-4 pt-1">
+        {required && <span className="text-red-500 mr-1">*</span>} {label}
+      </label>
+      <div className="flex-1 max-w-[520px]">
+        <div className="grid gap-3 rounded-xl border border-gray-200 bg-white p-3 sm:grid-cols-[190px_minmax(0,1fr)]">
+          <div className="overflow-hidden rounded-lg border border-orange-100 bg-orange-50">
+            <div className="aspect-[1.58/1]">
+              {previewUrl ? (
+                <img src={previewUrl} alt={`${label} preview`} className="h-full w-full object-cover" />
+              ) : (
+                <IdentityCardMock side={side} />
+              )}
+            </div>
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-medium text-gray-800">{label}</div>
+            <p className="mt-1 text-xs leading-5 text-gray-500">{helper}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <label htmlFor={id} className="inline-flex h-9 cursor-pointer items-center justify-center rounded border border-orange-200 bg-orange-50 px-3 text-sm font-medium text-orange-700 hover:bg-orange-100">
+                {previewUrl ? "Replace image" : "Upload image"}
+              </label>
+              {previewUrl && (
+                <button type="button" onClick={onClear} className="h-9 rounded border border-gray-200 px-3 text-sm text-gray-600 hover:bg-gray-50">
+                  Clear
+                </button>
+              )}
+            </div>
+            <input
+              id={id}
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp"
+              onChange={(event) => onChange(event.target.files?.[0] ?? null)}
+              className="sr-only"
+            />
+            <p className="mt-2 truncate text-xs text-gray-500">
+              {file ? `${file.name} (${(file.size / 1024).toFixed(1)} KB)` : existing ? "Saved image available. Upload again only if replacing it." : "JPG, PNG, or WebP accepted."}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function OnboardingFormPage() {
   const params = useParams();
   const router = useRouter();
@@ -83,6 +181,12 @@ export default function OnboardingFormPage() {
   const [existingIdentityFront, setExistingIdentityFront] = useState(false);
   const [existingIdentityBack, setExistingIdentityBack] = useState(false);
   const [existingSelfie, setExistingSelfie] = useState(false);
+  const [existingIdentityFrontPath, setExistingIdentityFrontPath] = useState<string | null>(null);
+  const [existingIdentityBackPath, setExistingIdentityBackPath] = useState<string | null>(null);
+  const [existingSelfiePath, setExistingSelfiePath] = useState<string | null>(null);
+  const [identityFrontPreview, setIdentityFrontPreview] = useState<string | null>(null);
+  const [identityBackPreview, setIdentityBackPreview] = useState<string | null>(null);
+  const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
   const [businessRegistrationUrl, setBusinessRegistrationUrl] = useState("");
   // Step 4
   const [bankAccountName, setBankAccountName] = useState("");
@@ -128,6 +232,9 @@ export default function OnboardingFormPage() {
         setExistingIdentityFront(Boolean(app.identity_document_front_path));
         setExistingIdentityBack(Boolean(app.identity_document_back_path));
         setExistingSelfie(Boolean(app.selfie_with_id_path));
+        setExistingIdentityFrontPath(app.identity_document_front_path ?? null);
+        setExistingIdentityBackPath(app.identity_document_back_path ?? null);
+        setExistingSelfiePath(app.selfie_with_id_path ?? null);
         if (app.business_registration_url) setBusinessRegistrationUrl(app.business_registration_url);
         if (app.bank_account_name) setBankAccountName(app.bank_account_name);
         if (app.bank_account_number) setBankAccountNumber(app.bank_account_number);
@@ -135,6 +242,42 @@ export default function OnboardingFormPage() {
       })
       .catch(() => {});
   }, [user]);
+
+  useEffect(() => {
+    if (!identityDocFront) {
+      setIdentityFrontPreview(null);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(identityDocFront);
+    setIdentityFrontPreview(previewUrl);
+
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [identityDocFront]);
+
+  useEffect(() => {
+    if (!identityDocBack) {
+      setIdentityBackPreview(null);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(identityDocBack);
+    setIdentityBackPreview(previewUrl);
+
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [identityDocBack]);
+
+  useEffect(() => {
+    if (!selfieFile) {
+      setSelfiePreview(null);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(selfieFile);
+    setSelfiePreview(previewUrl);
+
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [selfieFile]);
 
   const loadCountries = async () => {
     try {
@@ -337,6 +480,24 @@ export default function OnboardingFormPage() {
 
     return fallback;
   };
+
+  const selectImageFile = (file: File | null, setter: (file: File | null) => void) => {
+    if (!file) {
+      setter(null);
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
+      alert(`File must be under ${MAX_IMAGE_MB}MB`);
+      return;
+    }
+
+    setter(file);
+  };
+
+  const identityFrontPreviewUrl = identityFrontPreview ?? resolveBackendAssetUrl(existingIdentityFrontPath);
+  const identityBackPreviewUrl = identityBackPreview ?? resolveBackendAssetUrl(existingIdentityBackPath);
+  const selfiePreviewUrl = selfiePreview ?? resolveBackendAssetUrl(existingSelfiePath);
 
   return (
     <div className="min-h-screen bg-gray-50 pt-14">
@@ -748,65 +909,56 @@ export default function OnboardingFormPage() {
                         Upload clear photos of your ID and a selfie. Blurry or edited images may be rejected.
                       </p>
 
-                      <div className="flex items-start mb-6">
-                        <label className="w-[200px] flex items-center justify-end min-h-8 mr-4 text-sm text-right flex-shrink-0 leading-4 pt-1">
-                          <span className="text-red-500 mr-1">*</span> ID document (front)
-                        </label>
-                        <div className="flex-1 max-w-[400px]">
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/jpg,image/png"
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f && f.size <= MAX_IMAGE_MB * 1024 * 1024) setIdentityDocFront(f);
-                              else if (f) alert(`File must be under ${MAX_IMAGE_MB}MB`);
-                            }}
-                            className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-orange-50 file:text-orange-700"
-                          />
-                          {identityDocFront && <p className="text-xs text-gray-500 mt-1">{identityDocFront.name} ({(identityDocFront.size / 1024).toFixed(1)} KB)</p>}
-                          <p className="text-xs text-gray-500 mt-0.5">{existingIdentityFront ? "Existing front image saved. Upload again only if replacing it. " : ""}JPG or PNG, max {MAX_IMAGE_MB}MB</p>
-                        </div>
-                      </div>
+                      <DocumentUploadCard
+                        id="identity_document_front"
+                        label="ID document (front)"
+                        required
+                        helper={`Upload a clear front-side photo with all details readable. Max ${MAX_IMAGE_MB}MB.`}
+                        file={identityDocFront}
+                        previewUrl={identityFrontPreviewUrl}
+                        existing={existingIdentityFront}
+                        side="front"
+                        onChange={(file) => selectImageFile(file, setIdentityDocFront)}
+                        onClear={() => {
+                          setIdentityDocFront(null);
+                          setExistingIdentityFront(false);
+                          setExistingIdentityFrontPath(null);
+                        }}
+                      />
 
-                      <div className="flex items-start mb-6">
-                        <label className="w-[200px] flex items-center justify-end min-h-8 mr-4 text-sm text-right flex-shrink-0 leading-4 pt-1">
-                          <span className="text-red-500 mr-1">*</span> ID document (back)
-                        </label>
-                        <div className="flex-1 max-w-[400px]">
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/jpg,image/png"
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f && f.size <= MAX_IMAGE_MB * 1024 * 1024) setIdentityDocBack(f);
-                              else if (f) alert(`File must be under ${MAX_IMAGE_MB}MB`);
-                            }}
-                            className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-orange-50 file:text-orange-700"
-                          />
-                          {identityDocBack && <p className="text-xs text-gray-500 mt-1">{identityDocBack.name}</p>}
-                          <p className="text-xs text-gray-500 mt-0.5">{existingIdentityBack ? "Existing back image saved. Upload again only if replacing it. " : ""}JPG or PNG, max {MAX_IMAGE_MB}MB</p>
-                        </div>
-                      </div>
+                      <DocumentUploadCard
+                        id="identity_document_back"
+                        label="ID document (back)"
+                        required
+                        helper={`Upload the reverse side so verification can confirm the full card. Max ${MAX_IMAGE_MB}MB.`}
+                        file={identityDocBack}
+                        previewUrl={identityBackPreviewUrl}
+                        existing={existingIdentityBack}
+                        side="back"
+                        onChange={(file) => selectImageFile(file, setIdentityDocBack)}
+                        onClear={() => {
+                          setIdentityDocBack(null);
+                          setExistingIdentityBack(false);
+                          setExistingIdentityBackPath(null);
+                        }}
+                      />
 
-                      <div className="flex items-start mb-6">
-                        <label className="w-[200px] flex items-center justify-end min-h-8 mr-4 text-sm text-right flex-shrink-0 leading-4 pt-1">
-                          <span className="text-red-500 mr-1">*</span> Selfie with ID
-                        </label>
-                        <div className="flex-1 max-w-[400px]">
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/jpg,image/png"
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f && f.size <= MAX_IMAGE_MB * 1024 * 1024) setSelfieFile(f);
-                              else if (f) alert(`File must be under ${MAX_IMAGE_MB}MB`);
-                            }}
-                            className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-orange-50 file:text-orange-700"
-                          />
-                          {selfieFile && <p className="text-xs text-gray-500 mt-1">{selfieFile.name}</p>}
-                          <p className="text-xs text-gray-500 mt-0.5">{existingSelfie ? "Existing selfie saved. Upload again only if replacing it. " : ""}Hold your ID next to your face. Max {MAX_IMAGE_MB}MB</p>
-                        </div>
-                      </div>
+                      <DocumentUploadCard
+                        id="selfie_with_id"
+                        label="Selfie with ID"
+                        required
+                        helper={`Hold the card beside your face in good lighting. Max ${MAX_IMAGE_MB}MB.`}
+                        file={selfieFile}
+                        previewUrl={selfiePreviewUrl}
+                        existing={existingSelfie}
+                        side="selfie"
+                        onChange={(file) => selectImageFile(file, setSelfieFile)}
+                        onClear={() => {
+                          setSelfieFile(null);
+                          setExistingSelfie(false);
+                          setExistingSelfiePath(null);
+                        }}
+                      />
 
                       <div className="flex items-start mb-6">
                         <label className="w-[200px] flex items-center justify-end min-h-8 mr-4 text-sm text-right flex-shrink-0 leading-4 pt-1">
@@ -815,7 +967,7 @@ export default function OnboardingFormPage() {
                         <div className="flex-1 max-w-[400px]">
                           <input
                             type="file"
-                            accept=".pdf,image/jpeg,image/jpg,image/png"
+                            accept=".pdf,image/jpeg,image/jpg,image/png,image/webp"
                             onChange={(e) => {
                               const f = e.target.files?.[0];
                               if (f && f.size <= MAX_PDF_MB * 1024 * 1024) setBusinessRegFile(f);
@@ -990,7 +1142,7 @@ export default function OnboardingFormPage() {
               onMouseEnter={() => setShowSupportTooltip(true)}
               onMouseLeave={() => setShowSupportTooltip(false)}
               className="flex items-center justify-center w-12 h-12 cursor-pointer hover:bg-gray-50 transition-colors rounded relative"
-              aria-label="Contact Shopee"
+              aria-label="Contact Shopee Support"
             >
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-8 h-8">
                 <path fillRule="evenodd" clipRule="evenodd" d="M25.503 19.0641V14.6286C24.8376 9.97631 20.8366 6.4 16.0002 6.4C11.2647 6.4 7.32995 9.82885 6.54336 14.3393V19.1577C6.54336 19.6229 6.16623 20 5.70102 20C4.17801 20 2.94336 18.7654 2.94336 17.2423V15.7577C2.94336 14.3329 4.0238 13.1605 5.41002 13.0152C6.71087 8.3904 10.9596 5 16.0002 5C21.0366 5 25.2825 8.38471 26.5872 13.0035C28.2106 13.0808 29.503 14.4215 29.503 16.0641V16.9359C29.503 18.6282 28.1312 20 26.439 20C25.9221 20 25.503 19.581 25.503 19.0641ZM17.8731 26.1226C17.8731 25.4322 17.3135 24.8726 16.6231 24.8726H15.1231C14.4328 24.8726 13.8731 25.4322 13.8731 26.1226C13.8731 26.8129 14.4328 27.3726 15.1231 27.3726H16.6231C17.3135 27.3726 17.8731 26.8129 17.8731 26.1226Z" fill="#EE4D2D" />
@@ -1002,7 +1154,7 @@ export default function OnboardingFormPage() {
             </button>
             {showSupportTooltip && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-80 text-white text-sm px-2 py-1 rounded whitespace-nowrap pointer-events-none z-10">
-                Contact Shopee
+                Contact Shopee Support
               </div>
             )}
           </div>

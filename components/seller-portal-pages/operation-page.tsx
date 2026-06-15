@@ -29,7 +29,7 @@ import {
   uploadSellerShopLogo,
 } from "@/lib/api-client";
 import type { CountryOption } from "@/lib/api-client";
-import { resolveBackendAssetUrl } from "@/lib/utils";
+import { formatCurrencyAmount, resolveBackendAssetUrl } from "@/lib/utils";
 
 export type OperationPageKind =
   | "account"
@@ -88,9 +88,7 @@ function lastPage(page: unknown): number {
 }
 
 function money(value: unknown, currency = "$") {
-  const amount = Number(value ?? 0);
-  const prefix = currency.length <= 3 && currency !== "$" ? `${currency} ` : currency;
-  return `${prefix}${Number.isFinite(amount) ? amount.toFixed(2) : "0.00"}`;
+  return formatCurrencyAmount(value as number | string | null | undefined, currency);
 }
 
 function formatValue(value: unknown, fallback = "0") {
@@ -677,7 +675,11 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="text-lg font-bold text-neutral-900">{formatValue(message.title, "")}</div>
-                    <div className="text-sm text-neutral-500">{formatValue(message.category, "")}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-neutral-500">
+                      <span>{formatValue(message.category, "")}</span>
+                      {message.unread ? <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-600">Unread</span> : null}
+                      {message.expires_at ? <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-500">Archived after expiry</span> : null}
+                    </div>
                   </div>
                   <div className="text-sm text-neutral-500">{formatValue(message.sent_at, "")}</div>
                 </div>

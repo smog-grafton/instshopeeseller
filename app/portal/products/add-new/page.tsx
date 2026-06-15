@@ -12,6 +12,7 @@ import {
   getWallet,
   type SellerProductSettings,
 } from "@/lib/api-client";
+import { formatCurrencyAmount } from "@/lib/utils";
 
 type Spec = { label: string; value: string };
 type Variant = { type: "color" | "size"; label: string; sku?: string; price?: string; original_price?: string; stock?: string };
@@ -187,7 +188,7 @@ function AddNewProductContent() {
             Catalog Products
           </button>
           <div className="ml-auto px-4 py-3 text-sm text-gray-500">
-            Wallet: {currency} {walletBalance.toFixed(2)}
+            Wallet: {formatCurrencyAmount(walletBalance, currency)}
           </div>
         </div>
 
@@ -431,7 +432,7 @@ function AddNewProductContent() {
                     <div className="font-medium text-gray-800">{p.title}</div>
                     <div className="text-xs text-gray-500 mt-1">{p.category_slug}</div>
                     <div className="text-sm text-gray-700 mt-2">
-                      {currency} {Number(p.base_price).toFixed(2)}
+                      {formatCurrencyAmount(p.base_price, currency)}
                     </div>
                     <div className="text-xs text-gray-500 mt-1">Stock: {p.available_stock}</div>
                     <div className="mt-3 flex gap-2">
