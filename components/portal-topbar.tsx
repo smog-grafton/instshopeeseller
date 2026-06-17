@@ -3,19 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { logoutApi } from "@/lib/api-client";
 import { canUseSellerStoreTools } from "@/lib/portal-access";
 import { getBuyerLoginUrl, isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
 
-const SUPPORT_EMAIL = "shopeecustomerservice58@gmail.com";
-
 export default function PortalTopbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { user } = useAuth();
-  const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<number | null>(null);
   const canManageStore = canUseSellerStoreTools(user);
 
   const avatarUrl = (() => {
@@ -33,6 +30,36 @@ export default function PortalTopbar({ onOpenMenu }: { onOpenMenu: () => void })
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current != null) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  const openUserMenu = () => {
+    if (closeTimerRef.current != null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setShowUserMenu(true);
+  };
+
+  const closeUserMenu = () => {
+    setShowUserMenu(false);
+  };
+
+  const scheduleCloseUserMenu = () => {
+    if (closeTimerRef.current != null) {
+      window.clearTimeout(closeTimerRef.current);
+    }
+    closeTimerRef.current = window.setTimeout(() => {
+      setShowUserMenu(false);
+      closeTimerRef.current = null;
+    }, 150);
+  };
 
   const onLogout = async () => {
     await logoutApi();
@@ -55,100 +82,141 @@ export default function PortalTopbar({ onOpenMenu }: { onOpenMenu: () => void })
         </button>
         <span className="text-sm font-semibold text-gray-800 hidden md:inline">Shopee Seller Centre</span>
       </div>
-      <div className="flex items-center gap-3 sm:gap-4 min-w-0 overflow-x-auto overflow-y-hidden flex-1 justify-end md:flex-initial [scrollbar-width:thin]">
-        <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
-          {canManageStore ? (
-            <Link href="/portal/my-shop" className="text-gray-500 hover:text-gray-700 flex-shrink-0" title="My shop">
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                <path d="M4 8.5h16v10.5H4z" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M7 8.5V5h10v3.5" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M8 13h3m2 0h3" stroke="currentColor" strokeWidth="1.5" />
-              </svg>
-            </Link>
-          ) : null}
+      <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-shrink-0 justify-end">
+        <div
+          className="relative flex-shrink-0"
+          ref={menuRef}
+          onMouseEnter={() => {
+            if (window.matchMedia("(min-width: 768px)").matches) {
+              openUserMenu();
+            }
+          }}
+          onMouseLeave={() => {
+            if (window.matchMedia("(min-width: 768px)").matches) {
+              scheduleCloseUserMenu();
+            }
+          }}
+        >
           <button
             type="button"
-            className="text-gray-500 hover:text-gray-700 flex-shrink-0"
-            title={`Help: ${SUPPORT_EMAIL}`}
-            onClick={() => router.push("/portal/my-message?support=1")}
+            onClick={() => setShowUserMenu((open) => !open)}
+            className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-gray-50 transition-colors"
+            aria-expanded={showUserMenu}
+            aria-haspopup="menu"
+            aria-label="Account menu"
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6" />
-              <path d="M9.5 9a2.5 2.5 0 015 0c0 1.5-2.5 1.5-2.5 3" stroke="currentColor" strokeWidth="1.6" />
-              <circle cx="12" cy="17" r="1" fill="currentColor" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className="text-gray-500 hover:text-red-600 flex-shrink-0"
-            title="Log out"
-            onClick={onLogout}
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-              <path d="M10 6H5v12h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M14 8l4 4-4 4M18 12H9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <div className="relative flex-shrink-0" ref={menuRef}>
-            <button
-              type="button"
-              onClick={() => setShowUserMenu((s) => !s)}
-              className="flex items-center gap-2"
-            >
-              {avatarUrl ? (
-                <Image
-                  src={avatarUrl}
-                  alt={user?.name || "User"}
-                  width={28}
-                  height={28}
-                  className="rounded-full"
-                  unoptimized={isBackendImage(avatarUrl)}
-                />
-              ) : (
-                <div className="w-7 h-7 rounded-full bg-orange-600 text-white text-xs flex items-center justify-center">
-                  {user?.name?.slice(0, 1).toUpperCase() || "U"}
-                </div>
-              )}
-              <span className="text-sm text-gray-700 hidden md:inline">{user?.name || "User"}</span>
-            </button>
-            {showUserMenu && (
-              <div className="absolute right-0 mt-3 w-[min(16rem,calc(100vw-2rem))] max-w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-2">
-                <div className="px-4 py-3 border-b border-gray-100">
-                  <div className="text-sm font-semibold text-gray-800">{user?.name || "User"}</div>
-                  <div className="text-xs text-gray-500 break-all">{user?.email || ""}</div>
-                </div>
-                <div className="py-2">
-                  <Link href="/portal/my-account" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setShowUserMenu(false)}>
-                    {canManageStore ? "My Account" : "Review Status"}
-                  </Link>
-                  {canManageStore ? (
-                    <>
-                      <Link href="/portal/dashboard" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setShowUserMenu(false)}>
-                        Dashboard
-                      </Link>
-                      <Link href="/portal/finance/my-balance" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setShowUserMenu(false)}>
-                        My Balance
-                      </Link>
-                      <Link href="/portal/shop/shop-information" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setShowUserMenu(false)}>
-                        Shop Information
-                      </Link>
-                      <Link href="/portal/shop/shop-setting" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setShowUserMenu(false)}>
-                        Shop Settings
-                      </Link>
-                    </>
-                  ) : null}
-                </div>
-                <div className="border-t border-gray-100">
-                  <button
-                    onClick={onLogout}
-                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
-                  >
-                    Log out
-                  </button>
-                </div>
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt={user?.name || "User"}
+                width={28}
+                height={28}
+                className="rounded-full"
+                unoptimized={isBackendImage(avatarUrl)}
+              />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-orange-600 text-white text-xs flex items-center justify-center">
+                {user?.name?.slice(0, 1).toUpperCase() || "U"}
               </div>
             )}
-          </div>
+            <span className="text-sm text-gray-700 hidden md:inline max-w-[10rem] truncate">{user?.name || "User"}</span>
+            <svg
+              className={`w-4 h-4 text-gray-500 hidden md:block transition-transform ${showUserMenu ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {showUserMenu && (
+            <div className="absolute right-0 top-full pt-2">
+              <div
+                className="w-[min(16rem,calc(100vw-2rem))] max-w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-2"
+                role="menu"
+              >
+              <div className="px-4 py-3 border-b border-gray-100">
+                <div className="text-sm font-semibold text-gray-800">{user?.name || "User"}</div>
+                <div className="text-xs text-gray-500 break-all">{user?.email || ""}</div>
+              </div>
+              <div className="py-2">
+                <Link
+                  href="/portal/my-account"
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  role="menuitem"
+                  onClick={closeUserMenu}
+                >
+                  {canManageStore ? "My Account" : "Review Status"}
+                </Link>
+                {canManageStore ? (
+                  <Link
+                    href="/portal/my-shop"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    role="menuitem"
+                    onClick={closeUserMenu}
+                  >
+                    My Shop
+                  </Link>
+                ) : null}
+                <Link
+                  href="/portal/my-message"
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  role="menuitem"
+                  onClick={closeUserMenu}
+                >
+                  My Message
+                </Link>
+                {canManageStore ? (
+                  <>
+                    <Link
+                      href="/portal/dashboard"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      role="menuitem"
+                      onClick={closeUserMenu}
+                    >
+                      Dashboard
+                    </Link>
+                    <Link
+                      href="/portal/finance/my-balance"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      role="menuitem"
+                      onClick={closeUserMenu}
+                    >
+                      My Balance
+                    </Link>
+                    <Link
+                      href="/portal/shop/shop-information"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      role="menuitem"
+                      onClick={closeUserMenu}
+                    >
+                      Shop Information
+                    </Link>
+                    <Link
+                      href="/portal/shop/shop-setting"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      role="menuitem"
+                      onClick={closeUserMenu}
+                    >
+                      Shop Settings
+                    </Link>
+                  </>
+                ) : null}
+              </div>
+              <div className="border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
+                  role="menuitem"
+                >
+                  Log out
+                </button>
+              </div>
+            </div>
+            </div>
+          )}
         </div>
       </div>
     </header>
