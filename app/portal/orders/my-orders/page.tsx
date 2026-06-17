@@ -31,6 +31,12 @@ type OrderRecord = {
   shipping_discount?: number;
   fulfillment_cost?: number | null;
   seller_payout?: number | null;
+  platform_fee?: number | null;
+  profit_basis?: string | null;
+  profit_basis_amount?: number | null;
+  normal_profit?: number | null;
+  max_allowed_profit?: number | null;
+  seller_profit_percent?: number | null;
   seller_shipping_fee?: number | null;
   currency_symbol?: string | null;
   processing_deadline_at?: string | null;
@@ -240,9 +246,18 @@ export default function SellerOrdersPage() {
                     const currencySymbol = normalizeCurrencySymbol(order.currency_symbol || "$");
                     const sellerShippingFee = Number(order.seller_shipping_fee ?? order.shipping_subtotal ?? 0);
                     const reservedOnShip = Number(order.fulfillment_cost ?? 0);
+                    const normalProfit = Number(order.normal_profit ?? 0);
+                    const maxAllowedProfit = Number(order.max_allowed_profit ?? 0);
+                    const profitBasisAmount = Number(order.profit_basis_amount ?? reservedOnShip);
+                    const sellerProfitPercent = Number(order.seller_profit_percent ?? 0);
                     const expectedProfit = Number(
                       order.seller_payout ?? Math.max(Number(order.total_payment || 0) - reservedOnShip, 0)
                     );
+                    const basisLabel = order.profit_basis === "order_total"
+                      ? "order total"
+                      : order.profit_basis === "gross_profit"
+                        ? "gross spread"
+                        : "processing reserve";
 
                     return (
                       <div className="border border-amber-100 bg-amber-50/70 p-3">
@@ -270,8 +285,19 @@ export default function SellerOrdersPage() {
                             <div className="mt-1 text-sm font-semibold text-emerald-700">
                               {formatMoney(expectedProfit, currencySymbol)}
                             </div>
+                            {sellerProfitPercent > 0 && (
+                              <div className="mt-0.5 text-[11px] text-emerald-700">
+                                {sellerProfitPercent.toFixed(2).replace(/\.00$/, "")}% of {basisLabel}
+                              </div>
+                            )}
                           </div>
                         </div>
+                        {(normalProfit > 0 || maxAllowedProfit > 0) && (
+                          <div className="mt-3 rounded border border-amber-200 bg-white/70 p-2 text-xs leading-5 text-amber-900">
+                            Profit basis: {formatMoney(profitBasisAmount, currencySymbol)} {basisLabel}. Normal rate gives {formatMoney(normalProfit, currencySymbol)};
+                            max allowed gives {formatMoney(maxAllowedProfit, currencySymbol)}. Seller profit uses the lower amount.
+                          </div>
+                        )}
                         {sellerShippingFee > 0 && (
                           <div className="mt-2 text-xs text-amber-900">
                             Shipping is covered by the shop on this order and is reserved from the seller wallet when you process it for delivery.

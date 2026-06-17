@@ -13,7 +13,7 @@ export default function SellerTermsPage() {
           {[
             ["Account registration", "Users must keep account, contact, password, and verification information accurate and secure."],
             ["Seller processing", "Sellers must maintain sufficient wallet balance and process eligible orders within the 24-hour processing window."],
-            ["Wallets and payouts", "Top ups, processing reserves, withdrawals, refunds, and seller profit releases are reviewed and recorded through wallet history."],
+            ["Wallets and payouts", "Top ups, processing reserves, withdrawals, refunds, and seller profit releases are reviewed and recorded through wallet history. Seller profit may be calculated from the processing reserve and capped by platform settings, for example min(processing reserve x target rate, processing reserve x max allowed rate)."],
             ["Frozen orders", "Orders that miss processing deadlines or require risk review may be frozen until Shopee Support unlocks them."],
             ["Marketplace conduct", "False documents, payment bypassing, fraud, harassment, prohibited goods, and system abuse are not allowed."],
           ].map(([title, body]) => (
