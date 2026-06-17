@@ -53,7 +53,7 @@ export default function PortalTopbar({ onOpenMenu }: { onOpenMenu: () => void })
             <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
           </svg>
         </button>
-        <span className="text-sm font-semibold text-gray-800 hidden md:inline">InstShopee Seller Centre</span>
+        <span className="text-sm font-semibold text-gray-800 hidden md:inline">Shopee Seller Centre</span>
       </div>
       <div className="flex items-center gap-3 sm:gap-4 min-w-0 overflow-x-auto overflow-y-hidden flex-1 justify-end md:flex-initial [scrollbar-width:thin]">
         <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">

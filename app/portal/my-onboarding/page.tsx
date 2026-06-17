@@ -171,7 +171,7 @@ export default function OnboardingPage() {
             <div className="mb-8">
               <Image
                 src="/assets/images/onboarding/onboaring-1.png"
-                alt="Welcome to InstShopee"
+                alt="Welcome to Shopee"
                 width={200}
                 height={200}
                 className="object-contain mx-auto"
@@ -181,7 +181,7 @@ export default function OnboardingPage() {
 
             {/* Welcome Text */}
             <h1 className="text-xl font-medium text-gray-800 mb-4">
-              Welcome to InstShopee!
+              Welcome to Shopee!
             </h1>
             <p className="text-sm text-gray-600 mb-6 max-w-md mx-auto leading-relaxed">
               To get started, register as a seller by providing the necessary information.
@@ -342,7 +342,7 @@ export default function OnboardingPage() {
             )}
           </div>
 
-          {/* Support/Contact InstShopee Icon */}
+          {/* Support/Contact Shopee Icon */}
           <div className="relative mb-1">
             <button
               onMouseEnter={() => setShowSupportTooltip(true)}
@@ -360,7 +360,7 @@ export default function OnboardingPage() {
             {/* Support Tooltip */}
             {showSupportTooltip && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-80 text-white text-sm px-2 py-1 rounded whitespace-nowrap pointer-events-none z-10">
-                Contact InstShopee Support
+                Contact Shopee Support
               </div>
             )}
           </div>

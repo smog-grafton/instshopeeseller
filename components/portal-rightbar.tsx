@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getNotifications, getSellerSiteMessages, markSellerSiteMessageSeen } from "@/lib/api-client";
 
-const SUPPORT_EMAIL = "support@instshopee.com";
-
 type NotificationItem = {
   id: string;
   title?: string;
@@ -102,7 +100,7 @@ export default function PortalRightbar() {
             )}
           </div>
 
-          {/* Support / Contact InstShopee Icon */}
+          {/* Support / Contact Shopee Icon */}
           <div className="relative mb-1">
             <button
               type="button"
@@ -110,7 +108,7 @@ export default function PortalRightbar() {
               onMouseEnter={() => setShowSupportTooltip(true)}
               onMouseLeave={() => setShowSupportTooltip(false)}
               className="flex items-center justify-center w-12 h-12 cursor-pointer hover:bg-gray-50 transition-colors rounded relative"
-              aria-label={`Contact InstShopee Support at ${SUPPORT_EMAIL}`}
+              aria-label="Contact Shopee Support"
             >
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-8 h-8">
                 <path fillRule="evenodd" clipRule="evenodd" d="M25.503 19.0641V14.6286C24.8376 9.97631 20.8366 6.4 16.0002 6.4C11.2647 6.4 7.32995 9.82885 6.54336 14.3393V19.1577C6.54336 19.6229 6.16623 20 5.70102 20C4.17801 20 2.94336 18.7654 2.94336 17.2423V15.7577C2.94336 14.3329 4.0238 13.1605 5.41002 13.0152C6.71087 8.3904 10.9596 5 16.0002 5C21.0366 5 25.2825 8.38471 26.5872 13.0035C28.2106 13.0808 29.503 14.4215 29.503 16.0641V16.9359C29.503 18.6282 28.1312 20 26.439 20C25.9221 20 25.503 19.581 25.503 19.0641ZM17.8731 26.1226C17.8731 25.4322 17.3135 24.8726 16.6231 24.8726H15.1231C14.4328 24.8726 13.8731 25.4322 13.8731 26.1226C13.8731 26.8129 14.4328 27.3726 15.1231 27.3726H16.6231C17.3135 27.3726 17.8731 26.8129 17.8731 26.1226Z" fill="#EE4D2D" />
@@ -122,7 +120,7 @@ export default function PortalRightbar() {
             </button>
             {showSupportTooltip && (
               <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-80 text-white text-sm px-2 py-1 rounded whitespace-nowrap pointer-events-none z-10">
-                {SUPPORT_EMAIL}
+                Contact Shopee Support
               </div>
             )}
           </div>
