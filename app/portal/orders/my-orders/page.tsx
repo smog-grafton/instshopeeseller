@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { getSellerOrders, updateSellerOrderStatus } from "@/lib/api-client";
 import { isBackendImage, normalizeCurrencySymbol } from "@/lib/utils";
 
@@ -348,9 +349,18 @@ export default function SellerOrdersPage() {
                         </>
                       )}
                       {order.status === "FROZEN" && (
-                        <span className="rounded border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700">
-                          Contact Shopee Support to unlock this order.
-                        </span>
+                        <div className="w-full rounded border border-red-200 bg-red-50 p-3 text-xs text-red-800 md:max-w-md">
+                          <div className="font-semibold text-red-900">Order Frozen</div>
+                          <div className="mt-1 leading-5">
+                            This order is frozen because the processing deadline has passed. Contact support to request a review.
+                          </div>
+                          <Link
+                            href={`/portal/my-message?support=1&topic=frozen_order_unlock&order_id=${order.id}`}
+                            className="mt-3 inline-flex h-9 items-center justify-center rounded bg-red-600 px-3 text-xs font-semibold text-white no-underline hover:bg-red-700"
+                          >
+                            Contact Support to Unlock
+                          </Link>
+                        </div>
                       )}
                       {order.status === "SHIPPED" && (
                         <span className="rounded border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">

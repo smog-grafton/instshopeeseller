@@ -279,6 +279,10 @@ export async function getSellerOrders(params?: { search?: string; status?: strin
   return apiFetch<{ success: boolean; orders: any }>(`/seller/orders${suffix}`);
 }
 
+export async function getSellerOrder(id: number | string) {
+  return apiFetch<{ success: boolean; order: any }>(`/seller/orders/${id}`);
+}
+
 export async function updateSellerOrderStatus(id: number, data: { status: string; shipping_provider?: string; tracking_number?: string }) {
   return apiFetch<{ success: boolean; message: string; order: any }>(`/seller/orders/${id}/status`, {
     method: "PUT",
@@ -501,12 +505,12 @@ export async function getSellerChatMessages(threadId: string, afterId?: number) 
   );
 }
 
-export async function sendSellerChatMessage(threadId: string, message: string) {
+export async function sendSellerChatMessage(threadId: string, message: string, meta?: { order_id?: number | string; topic?: string }) {
   return apiFetch<{ success: boolean; message: { id: string; text: string; sender_type: string; sender_label?: string; timestamp: string } }>(
     `/seller/chat/threads/${threadId}/send`,
     {
       method: "POST",
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, ...(meta || {}) }),
     }
   );
 }

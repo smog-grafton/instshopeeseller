@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { getApiBaseUrl, getSellerChatMessages, getSellerChatThreads, getSellerSupportThread, sendSellerChatMessage, sendSellerChatTyping } from "@/lib/api-client";
+import Link from "next/link";
+import { getApiBaseUrl, getSellerChatMessages, getSellerChatThreads, getSellerOrder, getSellerSupportThread, sendSellerChatMessage, sendSellerChatTyping } from "@/lib/api-client";
+import { normalizeCurrencySymbol } from "@/lib/utils";
 
 type Thread = {
   id: string;
@@ -23,7 +25,48 @@ type ChatMessage = {
   timestamp: string;
 };
 
+type SupportOrder = {
+  id: number;
+  order_number: string;
+  status: string;
+  total_payment: number;
+  fulfillment_cost?: number | null;
+  currency_symbol?: string | null;
+  created_at: string;
+  frozen_at?: string | null;
+  frozen_at_display?: string | null;
+  frozen_reason?: string | null;
+  is_frozen?: boolean;
+  user?: { name?: string | null; email?: string | null };
+};
+
 const SUPPORT_EMAIL = "shopeecustomerservice58@gmail.com";
+
+const formatMoney = (amount: number, currencySymbol = "$") =>
+  `${normalizeCurrencySymbol(currencySymbol)}${Number(amount || 0).toFixed(2)}`;
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "Not available";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not available";
+  return date.toLocaleString();
+};
+
+const buildFrozenOrderDraft = (order: SupportOrder) => {
+  const currencySymbol = normalizeCurrencySymbol(order.currency_symbol || "$");
+  return `Hello Shopee Support,
+
+I would like to request a review and unlock for this frozen order.
+
+Order Number: ${order.order_number}
+Order Total: ${formatMoney(Number(order.total_payment || 0), currencySymbol)}
+Frozen Reason: The 24-hour seller processing window passed before the order was processed.
+Current Status: ${order.status}
+
+Please review this order and advise if it can be unlocked for processing.
+
+Thank you.`;
+};
 
 export default function ChatManagementPage() {
   const searchParams = useSearchParams();
@@ -35,6 +78,8 @@ export default function ChatManagementPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [supportOrder, setSupportOrder] = useState<SupportOrder | null>(null);
+  const [supportError, setSupportError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
   const typingRef = useRef(0);
@@ -62,19 +107,42 @@ export default function ChatManagementPage() {
   }, [fetchThreads]);
 
   useEffect(() => {
-    if (searchParams.get("support") !== "1" || supportOpenedRef.current) return;
+    const supportRequested = searchParams.get("support") === "1";
+    const topic = searchParams.get("topic");
+    const orderId = searchParams.get("order_id");
+    const frozenOrderRequested = topic === "frozen_order_unlock" && Boolean(orderId);
+
+    if ((!supportRequested && !frozenOrderRequested) || supportOpenedRef.current) return;
     supportOpenedRef.current = true;
     const timeoutId = window.setTimeout(() => {
       setLoading(true);
-      getSellerSupportThread()
-        .then((res) => {
+      Promise.all([
+        getSellerSupportThread(),
+        frozenOrderRequested ? getSellerOrder(orderId as string) : Promise.resolve(null),
+      ])
+        .then(([res, orderRes]) => {
           const thread = res.thread;
-          if (!thread) return;
-          setThreads((current) => {
-            const existing = current.some((item) => item.id === thread.id);
-            return existing ? current.map((item) => (item.id === thread.id ? thread : item)) : [thread, ...current];
-          });
-          setSelectedId(thread.id);
+          if (thread) {
+            setThreads((current) => {
+              const existing = current.some((item) => item.id === thread.id);
+              return existing ? current.map((item) => (item.id === thread.id ? thread : item)) : [thread, ...current];
+            });
+            setSelectedId(thread.id);
+          }
+
+          const order = orderRes?.order as SupportOrder | undefined;
+          if (!order) return;
+
+          if (!order.is_frozen && order.status !== "FROZEN") {
+            setSupportError("This order is not frozen, so an unlock request is not available.");
+            return;
+          }
+
+          setSupportOrder(order);
+          setInput((current) => current || buildFrozenOrderDraft(order));
+        })
+        .catch((error) => {
+          setSupportError(error instanceof Error ? error.message : "Unable to prepare this support request.");
         })
         .finally(() => setLoading(false));
     }, 0);
@@ -181,7 +249,11 @@ export default function ChatManagementPage() {
     const tempId = `tmp-${Date.now()}`;
     setMessages((prev) => [...prev, { id: tempId, text, sender_type: "seller", sender_label: "You", timestamp: "now" }]);
     try {
-      const res = await sendSellerChatMessage(selectedId, text);
+      const topic = searchParams.get("topic");
+      const meta = supportOrder && topic === "frozen_order_unlock"
+        ? { order_id: supportOrder.id, topic }
+        : undefined;
+      const res = await sendSellerChatMessage(selectedId, text, meta);
       sendSellerChatTyping(selectedId, false).catch(() => {});
       setMessages((prev) => [
         ...prev.filter((m) => m.id !== tempId),
@@ -255,9 +327,12 @@ export default function ChatManagementPage() {
 
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="px-4 py-3 border-b border-gray-200 text-sm font-medium text-gray-700">
-              {selected ? `Chat with ${selected.buyerName}` : "Select a conversation"}
+              {supportOrder ? "Frozen Order Review Request" : selected ? `Chat with ${selected.buyerName}` : "Select a conversation"}
             </div>
             <div ref={listRef} className="flex-1 overflow-y-auto p-4 bg-gray-50">
+              {supportError ? (
+                <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{supportError}</div>
+              ) : null}
               {selected ? (
                 <div className="space-y-3">
                   {messages.map((msg) => (
@@ -297,6 +372,34 @@ export default function ChatManagementPage() {
             </div>
             {selected && (
               <form onSubmit={onSend} className="flex flex-col gap-2 border-t border-gray-200 p-3">
+                {supportOrder ? (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-950">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="font-semibold">Frozen Order Review Request</div>
+                        <div className="mt-1 text-xs leading-5 text-red-800">
+                          This order is frozen because the processing deadline has passed.
+                        </div>
+                      </div>
+                      <Link
+                        href="/portal/orders/my-orders"
+                        className="inline-flex h-8 w-fit items-center justify-center rounded border border-red-200 bg-white px-3 text-xs font-semibold text-red-700 no-underline hover:bg-red-100"
+                      >
+                        View Orders
+                      </Link>
+                    </div>
+                    <div className="mt-3 grid gap-2 text-xs leading-5 sm:grid-cols-2 lg:grid-cols-3">
+                      <div><span className="font-semibold">Order number:</span> {supportOrder.order_number}</div>
+                      <div><span className="font-semibold">Order date:</span> {formatDateTime(supportOrder.created_at)}</div>
+                      <div><span className="font-semibold">Frozen date:</span> {formatDateTime(supportOrder.frozen_at_display || supportOrder.frozen_at)}</div>
+                      <div><span className="font-semibold">Buyer:</span> {supportOrder.user?.name || supportOrder.user?.email || "Customer"}</div>
+                      <div><span className="font-semibold">Order total:</span> {formatMoney(Number(supportOrder.total_payment || 0), supportOrder.currency_symbol || "$")}</div>
+                      <div><span className="font-semibold">Processing amount:</span> {formatMoney(Number(supportOrder.fulfillment_cost || 0), supportOrder.currency_symbol || "$")}</div>
+                      <div><span className="font-semibold">Status:</span> {supportOrder.status}</div>
+                      <div><span className="font-semibold">Reason:</span> {supportOrder.frozen_reason || "Processing deadline passed"}</div>
+                    </div>
+                  </div>
+                ) : null}
                 {sendError ? <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{sendError}</div> : null}
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                   <textarea
