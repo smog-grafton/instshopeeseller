@@ -500,13 +500,13 @@ export async function getSellerSupportThread() {
 
 export async function getSellerChatMessages(threadId: string, afterId?: number) {
   const query = afterId ? `?after_id=${afterId}` : "";
-  return apiFetch<{ success: boolean; messages: { id: string; text: string; sender_type: string; sender_label?: string; timestamp: string }[] }>(
+  return apiFetch<{ success: boolean; messages: { id: string; text: string; sender_type: string; sender_label?: string; timestamp: string; meta?: any }[] }>(
     `/seller/chat/threads/${threadId}/messages${query}`
   );
 }
 
 export async function sendSellerChatMessage(threadId: string, message: string, meta?: { order_id?: number | string; topic?: string }) {
-  return apiFetch<{ success: boolean; message: { id: string; text: string; sender_type: string; sender_label?: string; timestamp: string } }>(
+  return apiFetch<{ success: boolean; message: { id: string; text: string; sender_type: string; sender_label?: string; timestamp: string; meta?: any } }>(
     `/seller/chat/threads/${threadId}/send`,
     {
       method: "POST",
@@ -855,6 +855,7 @@ export async function getCatalogProducts(params?: {
   max_price?: number;
   page?: number;
   per_page?: number;
+  section?: string;
   /** `standard` (default catalog) or `wholesale_centre` */
   listing_type?: string;
 }) {
@@ -865,6 +866,7 @@ export async function getCatalogProducts(params?: {
   if (typeof params?.max_price === "number") query.set("max_price", String(params.max_price));
   if (params?.page) query.set("page", String(params.page));
   if (params?.per_page) query.set("per_page", String(params.per_page));
+  if (params?.section) query.set("section", params.section);
   if (params?.listing_type) query.set("listing_type", params.listing_type);
   const q = query.toString();
   return apiFetch<{

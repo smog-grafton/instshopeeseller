@@ -42,6 +42,13 @@ type PriceRangeOption = {
   max?: number;
 };
 
+const SECTION_OPTIONS = [
+  { id: "latest", label: "Latest", helper: "Newest supplier drops" },
+  { id: "added_last_week", label: "Added Last Week", helper: "Fresh within 7 days" },
+  { id: "ready_stock", label: "Ready Stock", helper: "Higher stock first" },
+  { id: "value_picks", label: "Value Picks", helper: "Lower entry price" },
+];
+
 const PRICE_RANGE_OPTIONS: PriceRangeOption[] = [
   { id: "all", label: "All" },
   { id: "1-500", label: "1 - 500", min: 1, max: 500 },
@@ -169,6 +176,7 @@ export default function WholesaleCentrePage() {
   const [catalogTotal, setCatalogTotal] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedPriceRangeId, setSelectedPriceRangeId] = useState("all");
+  const [selectedSectionId, setSelectedSectionId] = useState("latest");
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [currency, setCurrency] = useState("USD");
   const [productSettings, setProductSettings] = useState<SellerProductSettings | null>(null);
@@ -213,11 +221,13 @@ export default function WholesaleCentrePage() {
     search?: string;
     category?: string;
     priceRangeId?: string;
+    sectionId?: string;
   }) => {
     const nextPage = options?.page ?? catalogPage;
     const nextSearch = options?.search ?? catalogSearch;
     const nextCategory = options?.category ?? selectedCategory;
     const nextPriceRangeId = options?.priceRangeId ?? selectedPriceRangeId;
+    const nextSectionId = options?.sectionId ?? selectedSectionId;
     const selectedPriceRange = PRICE_RANGE_OPTIONS.find((option) => option.id === nextPriceRangeId) ?? PRICE_RANGE_OPTIONS[0];
 
     setCatalogLoading(true);
@@ -228,7 +238,8 @@ export default function WholesaleCentrePage() {
         min_price: selectedPriceRange.min,
         max_price: selectedPriceRange.max,
         page: nextPage,
-        per_page: 24,
+        per_page: 20,
+        section: nextSectionId,
         listing_type: "wholesale_centre",
       });
 
@@ -276,6 +287,12 @@ export default function WholesaleCentrePage() {
     setSelectedPriceRangeId(priceRangeId);
     setCatalogPage(1);
     void loadCatalog({ page: 1, priceRangeId });
+  };
+
+  const handleSectionChange = (sectionId: string) => {
+    setSelectedSectionId(sectionId);
+    setCatalogPage(1);
+    void loadCatalog({ page: 1, sectionId });
   };
 
   const handlePageChange = (page: number) => {
@@ -428,6 +445,31 @@ export default function WholesaleCentrePage() {
 
           <div className="mt-5 space-y-4 border-t border-gray-100 pt-4">
             <div className="space-y-2">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">Sections</div>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                {SECTION_OPTIONS.map((section) => {
+                  const active = selectedSectionId === section.id;
+
+                  return (
+                    <button
+                      key={section.id}
+                      type="button"
+                      onClick={() => handleSectionChange(section.id)}
+                      className={`min-h-14 border px-3 py-2 text-left transition ${
+                        active
+                          ? "border-orange-600 bg-orange-600 text-white"
+                          : "border-gray-200 bg-white text-gray-800 hover:border-orange-200 hover:bg-orange-50"
+                      }`}
+                    >
+                      <span className="block text-xs font-semibold uppercase tracking-[0.08em]">{section.label}</span>
+                      <span className={`mt-1 block text-[11px] ${active ? "text-white/80" : "text-gray-500"}`}>{section.helper}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">Classification</div>
               <div className="overflow-x-auto">
                 <div className="flex min-w-max gap-2 pb-1">
@@ -481,7 +523,7 @@ export default function WholesaleCentrePage() {
           {catalogLoading ? (
             <div className="pt-5 text-sm text-gray-500">Loading wholesale products...</div>
           ) : (
-            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:[grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]">
+            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:[grid-template-columns:repeat(auto-fill,minmax(180px,1fr))]">
               {catalogProducts.map((product) => {
                 const previewImage = resolveCatalogThumbnail(product);
                 const alreadyDistributed = isProductDistributed(product);
@@ -492,13 +534,13 @@ export default function WholesaleCentrePage() {
                     className="flex h-full flex-col overflow-hidden border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                   >
                     <button type="button" onClick={() => openDetails(product)} className="flex flex-1 flex-col text-left">
-                      <div className="relative aspect-[3/4] w-full overflow-hidden bg-gray-100">
+                      <div className="relative aspect-square w-full overflow-hidden bg-gray-100">
                         {previewImage ? (
                           <Image
                             src={previewImage}
                             alt={product.title}
                             fill
-                            className="object-cover"
+                            className="object-contain"
                             unoptimized={isBackendImage(previewImage)}
                           />
                         ) : (
@@ -508,42 +550,33 @@ export default function WholesaleCentrePage() {
                         )}
                       </div>
 
-                      <div className="flex flex-1 flex-col gap-2.5 p-3">
-                        <div className="flex flex-wrap gap-1.5">
-                          <span className="border border-gray-200 bg-gray-50 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-gray-600">
-                            {product.category_slug || "General"}
-                          </span>
-                          {product.promotion_label && (
-                            <span className="border border-orange-200 bg-orange-50 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-orange-700">
-                              {product.promotion_label}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="min-h-[2.5rem] line-clamp-2 text-sm font-semibold leading-5 text-gray-900">
+                      <div className="flex flex-1 flex-col gap-2 p-2.5">
+                        <div className="min-h-[2.35rem] line-clamp-2 text-sm font-semibold leading-[1.18rem] text-gray-900">
                           {product.title}
                         </div>
 
                         <div className="mt-auto">
-                          <div className="text-[10px] uppercase tracking-[0.18em] text-gray-400">Shop price</div>
-                          <div className="mt-1 text-sm font-semibold text-gray-900 sm:text-base">
+                          <div className="text-sm font-semibold text-gray-900">
                             {formatCurrencyAmount(product.base_price, currency)}
                           </div>
                         </div>
                       </div>
                     </button>
 
-                    <div className="border-t border-gray-200 p-3">
+                    <div className="flex items-center gap-2 border-t border-gray-200 p-2.5">
+                      <span className="min-w-0 flex-1 truncate border border-gray-200 bg-gray-50 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.06em] text-gray-600">
+                        {product.category_slug || "General"}
+                      </span>
                       <button
                         type="button"
                         onClick={() => void onAdd(product.id)}
                         disabled={listingProductId === product.id || alreadyDistributed}
-                        className="inline-flex h-9 w-full items-center justify-center border border-orange-600 bg-orange-600 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:border-emerald-600 disabled:bg-emerald-600 disabled:opacity-100"
+                        className="inline-flex h-8 shrink-0 items-center justify-center border border-orange-600 bg-orange-600 px-2.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:border-emerald-600 disabled:bg-emerald-600 disabled:opacity-100"
                       >
                         {listingProductId === product.id
                           ? "Listing..."
                           : alreadyDistributed
-                            ? "Already distributed"
+                            ? "Listed"
                             : "Confirm listing"}
                       </button>
                     </div>
