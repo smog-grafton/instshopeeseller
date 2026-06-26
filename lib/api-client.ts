@@ -505,7 +505,24 @@ export async function getSellerChatMessages(threadId: string, afterId?: number) 
   );
 }
 
-export async function sendSellerChatMessage(threadId: string, message: string, meta?: { order_id?: number | string; topic?: string }) {
+export async function sendSellerChatMessage(
+  threadId: string,
+  message: string,
+  meta?: { order_id?: number | string; topic?: string },
+  attachment?: File
+) {
+  if (attachment) {
+    const form = new FormData();
+    form.append("message", message);
+    if (meta?.order_id !== undefined) form.append("order_id", String(meta.order_id));
+    if (meta?.topic) form.append("topic", meta.topic);
+    form.append("attachment", attachment);
+    return createMultipartRequest<{ success: boolean; message: { id: string; text: string; sender_type: string; sender_label?: string; timestamp: string; meta?: any } }>(
+      `/seller/chat/threads/${threadId}/send`,
+      form
+    );
+  }
+
   return apiFetch<{ success: boolean; message: { id: string; text: string; sender_type: string; sender_label?: string; timestamp: string; meta?: any } }>(
     `/seller/chat/threads/${threadId}/send`,
     {

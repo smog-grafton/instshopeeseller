@@ -16,6 +16,15 @@ type ChatProduct = {
   href?: string;
 };
 
+type ChatAttachment = {
+  id?: string;
+  name: string;
+  mime?: string;
+  size?: number;
+  type: "image" | "file";
+  url: string;
+};
+
 type Thread = {
   id: string;
   buyerName: string;
@@ -37,6 +46,7 @@ type ChatMessage = {
   meta?: {
     product_id?: number;
     product?: ChatProduct;
+    attachments?: ChatAttachment[];
     [key: string]: unknown;
   } | null;
 };
@@ -58,6 +68,7 @@ type SupportOrder = {
 
 const SUPPORT_EMAIL = "shopeecustomerservice58@gmail.com";
 const CUSTOMER_FRONTEND_ORIGIN = (process.env.NEXT_PUBLIC_CUSTOMER_APP_URL ?? "").replace(/\/+$/, "");
+const EMOJIS = ["😊", "👍", "🙏", "🔥", "❤️", "✅", "📦", "💬"];
 
 const formatMoney = (amount: number, currencySymbol = "$") =>
   `${normalizeCurrencySymbol(currencySymbol)}${Number(amount || 0).toFixed(2)}`;
@@ -110,12 +121,13 @@ function IconButton({
   );
 }
 
-function Icon({ name }: { name: "search" | "refresh" | "smile" | "image" | "paperclip" | "send" | "user" | "box" }) {
+function Icon({ name }: { name: "search" | "refresh" | "smile" | "image" | "camera" | "paperclip" | "send" | "user" | "box" }) {
   const common = "h-4 w-4";
   if (name === "search") return <svg className={common} viewBox="0 0 24 24" fill="none"><path d="m21 21-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>;
   if (name === "refresh") return <svg className={common} viewBox="0 0 24 24" fill="none"><path d="M20 6v5h-5M4 18v-5h5M18.2 9A7 7 0 0 0 6.8 6.7M5.8 15A7 7 0 0 0 17.2 17.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
   if (name === "smile") return <svg className={common} viewBox="0 0 24 24" fill="none"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM8.5 10h.01M15.5 10h.01M8 14a5 5 0 0 0 8 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>;
   if (name === "image") return <svg className={common} viewBox="0 0 24 24" fill="none"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Zm4 8 2.5-2.5L14 15l2-2 4 4M8.5 9h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  if (name === "camera") return <svg className={common} viewBox="0 0 24 24" fill="none"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Zm8 9a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
   if (name === "paperclip") return <svg className={common} viewBox="0 0 24 24" fill="none"><path d="m21 11-8.5 8.5a6 6 0 0 1-8.5-8.5L13 2a4 4 0 0 1 5.7 5.7l-9 9a2 2 0 1 1-2.8-2.8L15 5.8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
   if (name === "send") return <svg className={common} viewBox="0 0 24 24" fill="currentColor"><path d="M2 21 22 12 2 3v7l14 2-14 2v7Z" /></svg>;
   if (name === "box") return <svg className={common} viewBox="0 0 24 24" fill="none"><path d="m21 8-9-5-9 5 9 5 9-5ZM3 8v8l9 5 9-5V8M12 13v8" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg>;
@@ -126,6 +138,45 @@ function productHref(product?: ChatProduct | null) {
   if (!product?.href) return undefined;
   if (product.href.startsWith("http")) return product.href;
   return CUSTOMER_FRONTEND_ORIGIN ? `${CUSTOMER_FRONTEND_ORIGIN}${product.href}` : product.href;
+}
+
+function attachmentKind(file: File): "image" | "file" {
+  return file.type.startsWith("image/") ? "image" : "file";
+}
+
+function renderAttachments(attachments?: ChatAttachment[] | null, sellerMessage = false) {
+  if (!attachments?.length) return null;
+
+  return (
+    <div className="mt-2 space-y-2">
+      {attachments.map((attachment, index) => {
+        const key = attachment.id || `${attachment.url}-${index}`;
+        if (attachment.type === "image") {
+          return (
+            <a key={key} href={attachment.url} target="_blank" rel="noreferrer" className="block max-w-72 overflow-hidden rounded border border-white/30 bg-black/5">
+              <img src={attachment.url} alt={attachment.name} className="max-h-64 w-full object-contain" />
+            </a>
+          );
+        }
+
+        return (
+          <a
+            key={key}
+            href={attachment.url}
+            download={attachment.name}
+            target="_blank"
+            rel="noreferrer"
+            className={`flex max-w-72 items-center gap-2 rounded border px-3 py-2 text-xs font-medium no-underline ${
+              sellerMessage ? "border-orange-200 bg-orange-500 text-white" : "border-gray-200 bg-white text-gray-700"
+            }`}
+          >
+            <Icon name="paperclip" />
+            <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
+          </a>
+        );
+      })}
+    </div>
+  );
 }
 
 function ProductContextCard({ product, compact = false }: { product: ChatProduct; compact?: boolean }) {
@@ -165,9 +216,15 @@ export default function ChatManagementPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [selectedAttachment, setSelectedAttachment] = useState<File | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
   const [supportOrder, setSupportOrder] = useState<SupportOrder | null>(null);
   const [supportError, setSupportError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
   const typingRef = useRef(0);
   const supportOpenedRef = useRef(false);
@@ -282,6 +339,17 @@ export default function ChatManagementPage() {
   }, [messages]);
 
   useEffect(() => {
+    if (!selectedAttachment || !selectedAttachment.type.startsWith("image/")) {
+      setAttachmentPreview(null);
+      return;
+    }
+
+    const url = URL.createObjectURL(selectedAttachment);
+    setAttachmentPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [selectedAttachment]);
+
+  useEffect(() => {
     if (!selectedId) return;
     const trimmed = input.trim();
     const now = Date.now();
@@ -330,23 +398,53 @@ export default function ChatManagementPage() {
 
   const selected = selectedId ? threads.find((t) => t.id === selectedId) : null;
   const selectedProduct = selected?.product || messages.find((message) => message.meta?.product)?.meta?.product || null;
-  const appendEmoji = (emoji: string) => setInput((value) => `${value}${value ? " " : ""}${emoji}`);
+  const appendEmoji = (emoji: string) => {
+    setInput((value) => `${value}${value ? " " : ""}${emoji}`);
+    setShowEmojiPicker(false);
+  };
+
+  const handleAttachmentSelect = (file?: File) => {
+    if (!file) return;
+    setSelectedAttachment(file);
+    setShowEmojiPicker(false);
+  };
 
   const onSend = async (e: FormEvent) => {
     e.preventDefault();
-    if (!selectedId || !input.trim() || sending) return;
+    if (!selectedId || sending || (!input.trim() && !selectedAttachment)) return;
     const text = input.trim();
+    const attachment = selectedAttachment;
     setInput("");
+    setSelectedAttachment(null);
     setSending(true);
     setSendError(null);
     const tempId = `tmp-${Date.now()}`;
-    setMessages((prev) => [...prev, { id: tempId, text, sender_type: "seller", sender_label: "You", timestamp: "now" }]);
+    const tempAttachment = attachment
+      ? {
+          name: attachment.name,
+          mime: attachment.type,
+          size: attachment.size,
+          type: attachmentKind(attachment),
+          url: attachmentPreview || "",
+        }
+      : null;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        text: text || "Sending attachment...",
+        sender_type: "seller",
+        sender_label: "You",
+        timestamp: "now",
+        meta: tempAttachment ? { attachments: [tempAttachment] } : null,
+      },
+    ]);
     try {
       const topic = searchParams.get("topic");
       const meta = supportOrder && topic === "frozen_order_unlock"
         ? { order_id: supportOrder.id, topic }
         : undefined;
-      const res = await sendSellerChatMessage(selectedId, text, meta);
+      const res = await sendSellerChatMessage(selectedId, text, meta, attachment ?? undefined);
       sendSellerChatTyping(selectedId, false).catch(() => {});
       setMessages((prev) => [
         ...prev.filter((m) => m.id !== tempId),
@@ -362,6 +460,7 @@ export default function ChatManagementPage() {
       fetchThreads();
     } catch (error) {
       setInput(text);
+      setSelectedAttachment(attachment);
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setSendError(error instanceof Error ? error.message : "Message could not be sent.");
     } finally {
@@ -477,6 +576,7 @@ export default function ChatManagementPage() {
                         </div>
                       )}
                       <div className="whitespace-pre-wrap break-words">{msg.text}</div>
+                      {renderAttachments(msg.meta?.attachments, msg.sender_type === "seller")}
                       {msg.meta?.product ? <ProductContextCard product={msg.meta.product} compact /> : null}
                       <div className={`mt-1 text-xs ${
                         msg.sender_type === "seller"
@@ -526,15 +626,42 @@ export default function ChatManagementPage() {
                 ) : null}
                 {sendError ? <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{sendError}</div> : null}
                 {!supportOrder && selectedProduct ? <ProductContextCard product={selectedProduct} compact /> : null}
+                {selectedAttachment ? (
+                  <div className="flex items-center gap-3 rounded border border-gray-200 bg-gray-50 p-2">
+                    {attachmentPreview ? <img src={attachmentPreview} alt="" className="h-12 w-12 rounded object-cover" /> : <span className="inline-flex h-12 w-12 items-center justify-center rounded bg-white text-gray-500"><Icon name="paperclip" /></span>}
+                    <div className="min-w-0 flex-1 text-xs">
+                      <div className="truncate font-semibold text-gray-800">{selectedAttachment.name}</div>
+                      <div className="text-gray-500">{Math.ceil(selectedAttachment.size / 1024)} KB</div>
+                    </div>
+                    <button type="button" onClick={() => setSelectedAttachment(null)} className="h-8 rounded border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-600 hover:bg-gray-100">
+                      Remove
+                    </button>
+                  </div>
+                ) : null}
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                  <div className="flex gap-2 sm:pb-1">
-                    <IconButton label="Insert emoji" onClick={() => appendEmoji("😊")} disabled={sending}>
+                  <div className="relative flex gap-2 sm:pb-1">
+                    <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => handleAttachmentSelect(event.target.files?.[0])} />
+                    <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => handleAttachmentSelect(event.target.files?.[0])} />
+                    <input ref={fileInputRef} type="file" className="hidden" onChange={(event) => handleAttachmentSelect(event.target.files?.[0])} />
+                    <IconButton label="Insert emoji" onClick={() => setShowEmojiPicker((value) => !value)} disabled={sending}>
                       <Icon name="smile" />
                     </IconButton>
-                    <IconButton label="Image attachments are not available yet." disabled>
+                    {showEmojiPicker ? (
+                      <div className="absolute bottom-11 left-0 z-10 grid grid-cols-4 gap-1 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
+                        {EMOJIS.map((emoji) => (
+                          <button key={emoji} type="button" onClick={() => appendEmoji(emoji)} className="h-8 w-8 rounded text-lg hover:bg-gray-100">
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    <IconButton label="Attach image" onClick={() => imageInputRef.current?.click()} disabled={sending}>
                       <Icon name="image" />
                     </IconButton>
-                    <IconButton label="File attachments are not available yet." disabled>
+                    <IconButton label="Open camera" onClick={() => cameraInputRef.current?.click()} disabled={sending}>
+                      <Icon name="camera" />
+                    </IconButton>
+                    <IconButton label="Attach file" onClick={() => fileInputRef.current?.click()} disabled={sending}>
                       <Icon name="paperclip" />
                     </IconButton>
                   </div>
@@ -549,7 +676,7 @@ export default function ChatManagementPage() {
                   />
                   <button
                     className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded bg-orange-600 px-5 text-sm font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-orange-300"
-                    disabled={sending || !input.trim()}
+                    disabled={sending || (!input.trim() && !selectedAttachment)}
                   >
                     <Icon name="send" />
                     {sending ? "Sending..." : "Send"}
