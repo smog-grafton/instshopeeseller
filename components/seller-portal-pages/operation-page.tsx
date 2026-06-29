@@ -609,6 +609,19 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
     { href: "/portal/my-account", label: "Account Security", helper: "Manage login and transaction passwords.", iconSrc: "/assets/images/icons/security.png" },
     { href: "/portal/orders/shipping-setting", label: "Processing Rules", helper: "Review delivery and processing setup.", iconSrc: "/assets/images/icons/rules.png" },
     { href: "/terms-of-service", label: "Terms & Policies", helper: "Review marketplace operating rules.", iconSrc: "/assets/images/icons/policies.png" },
+    { href: "/portal/current-balance", label: "Current Balance", helper: "Review funds available for account activity.", iconSrc: "/assets/images/icons/wallet.png" },
+    { href: "/portal/my-order", label: "My Order", helper: "View your marketplace order history.", iconSrc: "/assets/images/icons/store-orders.png" },
+    { href: "/portal/billing-details", label: "Billing Details", helper: "Check account billing and wallet movements.", iconSrc: "/assets/images/icons/wallet.png" },
+    { href: "/portal/recharge-record", label: "Recharge Record", helper: "Track wallet top-up requests and outcomes.", iconSrc: "/assets/images/icons/wallet.png" },
+    { href: "/portal/withdrawals-record", label: "Withdrawals Record", helper: "Review payout requests and release status.", iconSrc: "/assets/images/icons/withdraw.png" },
+    { href: "/portal/bank-card-management", label: "Bank Cards", helper: "Manage payout bank account details.", iconSrc: "/assets/images/icons/wallet.png" },
+    { href: "/portal/shipping-address-management", label: "Shipping Address", helper: "Manage pickup and shipping profile details.", iconSrc: "/assets/images/icons/rules.png" },
+    { href: "/portal/stores-you-follow", label: "Followed Stores", helper: "Review stores saved from buyer activity.", iconSrc: "/assets/images/icons/store.png" },
+    { href: "/portal/browsing-history", label: "Browsing History", helper: "Open recently viewed marketplace items.", iconSrc: "/assets/images/icons/product.png" },
+    { href: "/portal/wholesale-center", label: "Wholesale Catalog", helper: "Open the wholesale sourcing catalog.", iconSrc: "/assets/images/icons/wholesale.png" },
+    { href: "/portal/store-news", label: "Store News", helper: "Update shop announcements and store news.", iconSrc: "/assets/images/icons/site-message.png" },
+    { href: "/portal/product-management", label: "Product Management", helper: "Open product management tools and status.", iconSrc: "/assets/images/icons/product.png" },
+    { href: "/portal/store-order-management", label: "Pending Orders", helper: "Open the pending order operations queue.", iconSrc: "/assets/images/icons/store-orders.png" },
   ];
 
   return (
@@ -624,7 +637,7 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
             <section className={`${panel} border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900`}>
               <div className="text-lg font-bold text-amber-950">Invitation code required</div>
               <p className="mt-1">
-                Seller tools are unavailable until a valid invitation code is added to this account. If you do not have one, contact shopeecustomerservice58@gmail.com.
+                Seller tools are unavailable until a valid invitation code is added to this account. Need help? Get in touch via chat support.
               </p>
               <button
                 className={`${redButton} mt-4`}
@@ -1160,7 +1173,7 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
               placeholder="Example: SHOPEE-X2"
             />
             <p className="mt-2 text-sm leading-6 text-neutral-500">
-              This code is required before seller tools can be used. If you do not have one, contact shopeecustomerservice58@gmail.com.
+              This code is required before seller tools can be used. Need help? Use chat support.
             </p>
             <button className={`${redButton} mt-8 h-14 w-full text-xl`} onClick={submitInvitationCode}>Submit</button>
           </div>

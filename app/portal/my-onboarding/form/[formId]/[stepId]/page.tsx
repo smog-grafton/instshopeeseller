@@ -317,7 +317,7 @@ export default function OnboardingFormPage() {
       return;
     }
     if (!invitationCode.trim()) {
-      alert("Please enter your invitation code. If you do not have one, contact shopeecustomerservice58@gmail.com.");
+      alert("Please enter your invitation code. Need help? Use chat support.");
       return;
     }
 
@@ -344,7 +344,7 @@ export default function OnboardingFormPage() {
         return;
       }
       if (!invitationCode.trim()) {
-        alert("Please enter your invitation code. If you do not have one, contact shopeecustomerservice58@gmail.com.");
+        alert("Please enter your invitation code. Need help? Use chat support.");
         return;
       }
       setSaving(true);
@@ -766,7 +766,7 @@ export default function OnboardingFormPage() {
                             className="w-full h-8 px-3 border border-gray-200 rounded text-sm text-gray-700 outline-0"
                           />
                           <p className="text-xs text-gray-500">
-                            Enter the invitation code given by support or an admin. If you do not have one, contact shopeecustomerservice58@gmail.com.
+                            Enter the invitation code given by support or an admin. Need help? Use chat support.
                           </p>
                         </div>
                       </div>

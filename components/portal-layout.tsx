@@ -5,16 +5,20 @@ import { usePathname } from "next/navigation";
 import PortalSidebar from "@/components/portal-sidebar";
 import PortalTopbar from "@/components/portal-topbar";
 import PortalRightbar from "@/components/portal-rightbar";
+import PortalBottomNav from "@/components/portal-bottom-nav";
 
 function useMediaQuery(query: string) {
-  const [matches, setMatches] = useState(false);
+  const [matches, setMatches] = useState(() =>
+    typeof window === "undefined" ? false : window.matchMedia(query).matches
+  );
+
   useEffect(() => {
     const m = window.matchMedia(query);
-    setMatches(m.matches);
     const h = () => setMatches(m.matches);
     m.addEventListener("change", h);
     return () => m.removeEventListener("change", h);
   }, [query]);
+
   return matches;
 }
 
@@ -22,18 +26,14 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const isOnboarding = pathname.startsWith("/portal/my-onboarding");
   const isDesktop = useMediaQuery("(min-width: 1024px)");
-  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
+  const [desktopCollapsed, setDesktopCollapsed] = useState(() =>
+    typeof window === "undefined" ? false : window.localStorage.getItem("portal_sidebar_collapsed") === "1"
+  );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("portal_sidebar_collapsed");
-    if (saved !== null) {
-      setDesktopCollapsed(saved === "1");
-    }
-  }, []);
-
-  useEffect(() => {
-    setMobileMenuOpen(false);
+    const timeout = window.setTimeout(() => setMobileMenuOpen(false), 0);
+    return () => window.clearTimeout(timeout);
   }, [pathname]);
 
   const toggleDesktopCollapse = () => {
@@ -56,8 +56,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     if (isDesktop) {
-      setMobileMenuOpen(false);
+      const timeout = window.setTimeout(() => setMobileMenuOpen(false), 0);
+      return () => window.clearTimeout(timeout);
     }
+    return undefined;
   }, [isDesktop]);
 
   if (isOnboarding) {
@@ -65,8 +67,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div className="min-h-screen max-w-full overflow-x-hidden bg-gray-50">
-      <div className="relative flex min-w-0 max-w-full overflow-x-hidden">
+    <div className="h-screen max-w-full overflow-hidden bg-gray-50">
+      <div className="relative flex h-screen min-w-0 max-w-full overflow-hidden">
         {!isDesktop && mobileMenuOpen && (
           <button
             type="button"
@@ -81,12 +83,13 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           onCloseMobile={closeMobileMenu}
           onToggleCollapse={toggleDesktopCollapse}
         />
-        <div className="relative min-w-0 flex-1 overflow-x-hidden">
+        <div className="relative h-screen min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
           <PortalTopbar onOpenMenu={openMobileMenu} />
-          <main className="max-w-full overflow-x-hidden p-4 pr-4 sm:p-6 sm:pr-20">{children}</main>
+          <main className="max-w-full overflow-x-hidden p-4 pb-28 pr-4 sm:p-6 sm:pb-28 sm:pr-20 md:pb-6">{children}</main>
           <PortalRightbar />
         </div>
       </div>
+      <PortalBottomNav />
     </div>
   );
 }

@@ -37,8 +37,6 @@ type DepositMethodConfig = {
   qr_code_url?: string;
 };
 
-const SUPPORT_EMAIL = "shopeecustomerservice58@gmail.com";
-
 type DepositMethod = {
   id: number;
   key: string;
@@ -456,7 +454,7 @@ export default function MyBalancePage() {
                     <div className="text-sm text-gray-600 whitespace-pre-line">{methodInstructions}</div>
                   ) : (
                     <div className="text-sm text-gray-500">
-                      Use the details below to complete payment. Contact {SUPPORT_EMAIL} if you need help.
+                      Use the details below to complete payment. Need help? Use chat support.
                     </div>
                   )}
                   {methodQrCode && (

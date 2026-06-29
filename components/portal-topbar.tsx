@@ -73,7 +73,7 @@ export default function PortalTopbar({ onOpenMenu }: { onOpenMenu: () => void })
         <button
           type="button"
           onClick={onOpenMenu}
-          className="inline-flex h-9 w-9 items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-50 lg:hidden"
+          className="hidden h-9 w-9 items-center justify-center rounded border border-gray-200 text-gray-600 hover:bg-gray-50 sm:inline-flex lg:hidden"
           aria-label="Open menu"
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">

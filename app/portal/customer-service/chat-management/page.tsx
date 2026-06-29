@@ -66,7 +66,6 @@ type SupportOrder = {
   user?: { name?: string | null; email?: string | null };
 };
 
-const SUPPORT_EMAIL = "shopeecustomerservice58@gmail.com";
 const CUSTOMER_FRONTEND_ORIGIN = (process.env.NEXT_PUBLIC_CUSTOMER_APP_URL ?? "").replace(/\/+$/, "");
 const EMOJIS = ["😊", "👍", "🙏", "🔥", "❤️", "✅", "📦", "💬"];
 
@@ -473,9 +472,7 @@ export default function ChatManagementPage() {
       <div>
         <div className="text-sm text-gray-500">Customer Service</div>
         <h1 className="text-xl font-semibold text-gray-900">Chat Management</h1>
-        <a href={`mailto:${SUPPORT_EMAIL}`} className="mt-1 inline-block text-sm font-medium text-orange-600">
-          {SUPPORT_EMAIL}
-        </a>
+        <div className="mt-1 text-sm font-medium text-orange-600">Use chat support for help.</div>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg p-4">
