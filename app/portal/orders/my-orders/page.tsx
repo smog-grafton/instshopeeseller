@@ -210,9 +210,7 @@ export default function SellerOrdersPage() {
                     </div>
                   </div>
 
-                  <div className="text-xs text-gray-500">
-                    Buyer protected: {order.user?.name || "Customer"} • {address.fullName || ""} • {address.phoneNumber || ""}
-                  </div>
+                  {/* Seller order privacy: buyer name, email, recipient name, and phone are intentionally omitted here. */}
                   <div className="text-xs text-gray-500">
                     Ship to: {address.streetAddress || ""} {address.stateArea || ""} {address.postalCode || ""}
                   </div>

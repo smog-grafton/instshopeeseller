@@ -209,27 +209,90 @@ function InfoRow({ label, value, action }: { label: string; value: string; actio
   );
 }
 
-function MetricCell({ label, value }: { label: string; value: string | number }) {
+type MetricTone = "red" | "orange" | "green" | "blue" | "slate";
+
+const metricToneStyles: Record<MetricTone, string> = {
+  red: "from-red-50 via-white to-white text-red-600 ring-red-100",
+  orange: "from-orange-50 via-white to-white text-orange-600 ring-orange-100",
+  green: "from-emerald-50 via-white to-white text-emerald-700 ring-emerald-100",
+  blue: "from-sky-50 via-white to-white text-sky-700 ring-sky-100",
+  slate: "from-slate-50 via-white to-white text-slate-800 ring-slate-100",
+};
+
+function ApprovedBadge({ status }: { status?: string | null }) {
+  if (status !== "approved") {
+    return <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold capitalize">{status || "review"}</span>;
+  }
+
   return (
-    <div className="flex min-h-28 flex-col justify-between rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
-      <div className="break-words text-2xl font-bold text-red-600">{value}</div>
-      <div className="mt-4 text-sm font-semibold text-neutral-600">{label}</div>
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-bold text-emerald-700 shadow-sm">
+      <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor" aria-hidden>
+        <path
+          fillRule="evenodd"
+          d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.7-9.7a1 1 0 0 0-1.4-1.4L9 10.17 7.7 8.88a1 1 0 1 0-1.4 1.41l2 2a1 1 0 0 0 1.4 0l4-4Z"
+          clipRule="evenodd"
+        />
+      </svg>
+      Approved
+    </span>
+  );
+}
+
+function AccountAvatar({ imageUrl }: { imageUrl: string | null }) {
+  return (
+    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-white shadow-[0_10px_30px_rgba(0,0,0,0.16)] ring-4 ring-white/30 sm:h-24 sm:w-24">
+      {imageUrl ? (
+        <img src={imageUrl} alt="Seller avatar" className="h-full w-full object-cover" />
+      ) : (
+        // Fallback avatar is intentionally visual only; uploaded avatars take precedence.
+        <Image src="/assets/images/icons/avatar.png" alt="Seller avatar" fill sizes="96px" className="object-cover" />
+      )}
     </div>
   );
 }
 
-function QuickActionCard({ href, label, helper, icon }: { href: string; label: string; helper: string; icon: string }) {
+function MetricCell({ label, value, tone = "red" }: { label: string; value: string | number; tone?: MetricTone }) {
+  return (
+    <div className={`relative min-h-28 overflow-hidden rounded-lg border border-white bg-gradient-to-br p-4 shadow-[0_10px_28px_rgba(15,23,42,0.08)] ring-1 ${metricToneStyles[tone]}`}>
+      <div className="absolute right-4 top-4 h-9 w-9 rounded-full bg-current opacity-[0.08]" aria-hidden />
+      <div className="relative flex h-full min-h-20 flex-col justify-between">
+        <div className="break-words text-2xl font-black leading-none tabular-nums">{value}</div>
+        <div className="mt-5 text-sm font-bold text-neutral-700">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function QuickActionCard({
+  href,
+  label,
+  helper,
+  iconSrc,
+}: {
+  href: string;
+  label: string;
+  helper: string;
+  iconSrc: string;
+}) {
   return (
     <Link
       href={href}
-      className="group flex min-h-28 min-w-0 flex-col justify-between rounded-lg border border-neutral-200 bg-white p-4 no-underline shadow-sm transition hover:-translate-y-0.5 hover:border-red-200 hover:shadow-md"
+      className="group relative flex min-h-36 min-w-0 flex-col justify-between overflow-hidden rounded-lg border border-neutral-200 bg-white p-4 no-underline shadow-[0_8px_24px_rgba(15,23,42,0.07)] transition hover:-translate-y-0.5 hover:border-red-200 hover:shadow-[0_14px_34px_rgba(15,23,42,0.12)]"
     >
+      <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-600 via-orange-500 to-amber-400 opacity-0 transition group-hover:opacity-100" aria-hidden />
       <div className="flex items-center justify-between gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-50 text-xl">{icon}</span>
-        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-neutral-400">Open</span>
+        <span className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-red-50 p-2.5 ring-1 ring-red-100">
+          <Image src={iconSrc} alt="" fill sizes="56px" className="object-contain p-2" />
+        </span>
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 text-neutral-400 transition group-hover:border-red-200 group-hover:text-red-600" aria-label="Open">
+          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M7 4h9v9" />
+            <path d="M16 4 5 15" />
+          </svg>
+        </span>
       </div>
       <div>
-        <div className="truncate text-sm font-bold text-neutral-950 group-hover:text-red-600">{label}</div>
+        <div className="truncate text-base font-black text-neutral-950 group-hover:text-red-600">{label}</div>
         <div className="mt-1 line-clamp-2 text-xs leading-5 text-neutral-500">{helper}</div>
       </div>
     </Link>
@@ -347,6 +410,9 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
   const shopStats = objectValue(shop.display_stats);
   const wallet = objectValue(data.wallet);
   const walletCurrency = formatValue(wallet.currency, "$");
+  const accountAvatarUrl = resolveBackendAssetUrl(
+    formatValue(user?.avatarUrl || account.avatar_url || account.avatar, "")
+  );
   const records = data.records;
   const selectedFundsMethod = rows(data.methods).find((method) => Number(method.id) === Number(fundsForm.methodId));
   const selectedFundsConfig = selectedFundsMethod ? paymentConfig(selectedFundsMethod) : {};
@@ -531,18 +597,18 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
   const accountBalance = Number(stats.account_balance ?? wallet.available_balance ?? wallet.balance ?? 0);
   const lowBalance = accountBalance < 200;
   const quickActions = [
-    { href: "/portal/my-shop", label: "Store Details", helper: "Update storefront profile and brand details.", icon: "S" },
-    { href: "/portal/products/my-products", label: "Store Products", helper: "Review listings, stock, and prices.", icon: "P" },
-    { href: "/portal/wholesale-centre", label: "Wholesale Center", helper: "Source products for your catalog.", icon: "W" },
-    { href: "/portal/orders/my-orders", label: "Store Orders", helper: "Process orders and shipping details.", icon: "O" },
-    { href: "/portal/wallet-management", label: "Wallet", helper: "Recharge and manage payout addresses.", icon: "$" },
-    { href: "/portal/withdraw", label: "Withdraw", helper: "Request a payout from available funds.", icon: "B" },
-    { href: "/portal/my-message", label: "Messages", helper: "Reply to customers and support.", icon: "M" },
-    { href: "/portal/site-message", label: "Site Messages", helper: "Read platform notices and alerts.", icon: "N" },
-    { href: "/portal/customer-service/chat-management?support=1", label: "Customer Support", helper: "Open a support conversation.", icon: "H" },
-    { href: "/portal/my-account", label: "Account Security", helper: "Manage login and transaction passwords.", icon: "K" },
-    { href: "/portal/orders/shipping-setting", label: "Processing Rules", helper: "Review delivery and processing setup.", icon: "R" },
-    { href: "/terms-of-service", label: "Terms & Policies", helper: "Review marketplace operating rules.", icon: "T" },
+    { href: "/portal/my-shop", label: "Store Details", helper: "Update storefront profile and brand details.", iconSrc: "/assets/images/icons/store.png" },
+    { href: "/portal/products/my-products", label: "Store Products", helper: "Review listings, stock, and prices.", iconSrc: "/assets/images/icons/product.png" },
+    { href: "/portal/wholesale-centre", label: "Wholesale Center", helper: "Source products for your catalog.", iconSrc: "/assets/images/icons/wholesale.png" },
+    { href: "/portal/orders/my-orders", label: "Store Orders", helper: "Process orders and shipping details.", iconSrc: "/assets/images/icons/store-orders.png" },
+    { href: "/portal/wallet-management", label: "Wallet", helper: "Recharge and manage payout addresses.", iconSrc: "/assets/images/icons/wallet.png" },
+    { href: "/portal/withdraw", label: "Withdraw", helper: "Request a payout from available funds.", iconSrc: "/assets/images/icons/withdraw.png" },
+    { href: "/portal/my-message", label: "Messages", helper: "Reply to customers and support.", iconSrc: "/assets/images/icons/messages.png" },
+    { href: "/portal/site-message", label: "Site Messages", helper: "Read platform notices and alerts.", iconSrc: "/assets/images/icons/site-message.png" },
+    { href: "/portal/customer-service/chat-management?support=1", label: "Customer Support", helper: "Open a support conversation.", iconSrc: "/assets/images/icons/customer-support.png" },
+    { href: "/portal/my-account", label: "Account Security", helper: "Manage login and transaction passwords.", iconSrc: "/assets/images/icons/security.png" },
+    { href: "/portal/orders/shipping-setting", label: "Processing Rules", helper: "Review delivery and processing setup.", iconSrc: "/assets/images/icons/rules.png" },
+    { href: "/terms-of-service", label: "Terms & Policies", helper: "Review marketplace operating rules.", iconSrc: "/assets/images/icons/policies.png" },
   ];
 
   return (
@@ -571,20 +637,16 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
               </button>
             </section>
           )}
-          <section className="overflow-hidden rounded-lg border border-red-100 bg-gradient-to-br from-red-600 via-red-500 to-orange-500 text-white shadow-lg">
+          <section className="overflow-hidden rounded-lg border border-red-100 bg-[radial-gradient(circle_at_12%_18%,rgba(255,255,255,0.24),transparent_30%),linear-gradient(135deg,#e90017_0%,#ff2e3d_52%,#ff7a00_100%)] text-white shadow-[0_18px_48px_rgba(238,77,45,0.22)]">
             <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
               <div className="min-w-0">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/15 text-2xl font-bold ring-1 ring-white/25">
-                    {formatValue(account.store_name, "S").slice(0, 1).toUpperCase()}
-                  </div>
+                  <AccountAvatar imageUrl={accountAvatarUrl} />
                   <div className="min-w-0">
                     <div className="truncate text-2xl font-bold">{formatValue(account.store_name, "Shopee Seller")}</div>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-white/85">
                       <span>Seller ID: {formatValue(account.store_id, "Pending")}</span>
-                      <span className="rounded-full bg-white/15 px-2 py-1 text-xs font-semibold">
-                        {user?.sellerStatus || "review"}
-                      </span>
+                      <ApprovedBadge status={user?.sellerStatus} />
                     </div>
                   </div>
                 </div>
@@ -594,7 +656,7 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
                   </div>
                 ) : null}
               </div>
-              <div className="rounded-lg bg-white p-4 text-neutral-950 shadow-sm">
+              <div className="rounded-lg bg-white p-4 text-neutral-950 shadow-[0_14px_36px_rgba(15,23,42,0.14)]">
                 <div className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">Wallet Balance</div>
                 <div className="mt-2 text-3xl font-bold text-red-600">{money(accountBalance, walletCurrency)}</div>
                 <div className="mt-4 grid grid-cols-2 gap-2">
@@ -625,12 +687,12 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
                 <Link href="/portal/orders/my-orders" className="text-sm font-semibold text-red-600 no-underline">View orders</Link>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <MetricCell label="Pending processing" value={formatValue(stats.today_order_count)} />
-                <MetricCell label="Processing" value={formatValue(stats.total_sales_today)} />
-                <MetricCell label="Awaiting confirmation" value={formatValue(stats.cumulative_order_quantity)} />
-                <MetricCell label="Completed" value={formatValue(stats.total_sales)} />
-                <MetricCell label="Frozen" value={formatValue(stats.frozen_orders)} />
-                <MetricCell label="Refund / after-sales" value={formatValue(stats.refund_orders)} />
+                <MetricCell label="Pending processing" value={formatValue(stats.today_order_count)} tone="orange" />
+                <MetricCell label="Processing" value={formatValue(stats.total_sales_today)} tone="blue" />
+                <MetricCell label="Awaiting confirmation" value={formatValue(stats.cumulative_order_quantity)} tone="red" />
+                <MetricCell label="Completed" value={formatValue(stats.total_sales)} tone="green" />
+                <MetricCell label="Frozen" value={formatValue(stats.frozen_orders)} tone="slate" />
+                <MetricCell label="Refund / after-sales" value={formatValue(stats.refund_orders)} tone="red" />
               </div>
             </div>
 
@@ -640,11 +702,11 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
                 <div className="text-sm text-neutral-500">Funds available for processing and payouts</div>
               </div>
               <div className="grid gap-3">
-                <MetricCell label="Available balance" value={money(accountBalance, walletCurrency)} />
-                <MetricCell label="Pending withdrawal" value={money(stats.pending_withdrawal, walletCurrency)} />
-                <MetricCell label="Locked processing funds" value={money(stats.locked_processing_funds, walletCurrency)} />
-                <MetricCell label="Today's profit" value={money(stats.today_profit, walletCurrency)} />
-                <MetricCell label="Total profit" value={money(stats.sales_profit, walletCurrency)} />
+                <MetricCell label="Available balance" value={money(accountBalance, walletCurrency)} tone="green" />
+                <MetricCell label="Pending withdrawal" value={money(stats.pending_withdrawal, walletCurrency)} tone="orange" />
+                <MetricCell label="Locked processing funds" value={money(stats.locked_processing_funds, walletCurrency)} tone="blue" />
+                <MetricCell label="Today's profit" value={money(stats.today_profit, walletCurrency)} tone="red" />
+                <MetricCell label="Total profit" value={money(stats.sales_profit, walletCurrency)} tone="slate" />
               </div>
             </div>
           </section>
