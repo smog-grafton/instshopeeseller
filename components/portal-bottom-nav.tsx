@@ -7,9 +7,10 @@ import { usePathname } from "next/navigation";
 const navItems = [
   { label: "Home", href: "/portal/my-account", icon: "/assets/images/icons/home.svg" },
   { label: "Chat", href: "/portal/my-message", icon: "/assets/images/icons/chat.svg" },
+  { label: "Messages", href: "/portal/site-message", icon: "/assets/images/icons/messages.png" },
   { label: "Wallet", href: "/portal/wallet-management", icon: "/assets/images/icons/wallet.png" },
   { label: "Orders", href: "/portal/orders/my-orders", icon: "/assets/images/icons/store-orders.png" },
-  { label: "My Shop", href: "/portal/my-shop", icon: "/assets/images/icons/shop.svg" },
+  { label: "Mine", href: "/portal/my-shop", icon: "/assets/images/icons/shop.svg" },
 ];
 
 export default function PortalBottomNav() {
@@ -25,12 +26,12 @@ export default function PortalBottomNav() {
         <Image src="/assets/images/icons/add-wholecenter.svg" alt="" width={36} height={36} className="h-9 w-9 object-contain" />
       </Link>
 
-      <div className="grid grid-cols-[1fr_1fr_4.25rem_1fr_1fr_1fr] items-end gap-1">
-        {navItems.slice(0, 2).map((item) => (
+      <div className="grid grid-cols-[1fr_1fr_1fr_4rem_1fr_1fr_1fr] items-end gap-1">
+        {navItems.slice(0, 3).map((item) => (
           <BottomNavItem key={item.href} item={item} active={pathname === item.href || pathname.startsWith(`${item.href}/`)} />
         ))}
         <div className="h-14" aria-hidden />
-        {navItems.slice(2).map((item) => (
+        {navItems.slice(3).map((item) => (
           <BottomNavItem key={item.href} item={item} active={pathname === item.href || pathname.startsWith(`${item.href}/`)} />
         ))}
       </div>
@@ -48,12 +49,12 @@ function BottomNavItem({
   return (
     <Link
       href={item.href}
-      className={`flex min-h-14 min-w-0 flex-col items-center justify-end gap-1 rounded-lg px-1 pb-1 pt-2 text-center no-underline transition ${
+      className={`flex min-h-14 min-w-0 flex-col items-center justify-end gap-1 rounded-lg px-0.5 pb-1 pt-2 text-center no-underline transition ${
         active ? "bg-orange-50 text-[#ee4d2d]" : "text-neutral-600"
       }`}
     >
-      <Image src={item.icon} alt="" width={28} height={28} className="h-7 w-7 object-contain" />
-      <span className="w-full truncate text-[10px] font-bold leading-3">{item.label}</span>
+      <Image src={item.icon} alt="" width={26} height={26} className="h-6 w-6 object-contain" />
+      <span className="w-full truncate text-[9px] font-bold leading-3">{item.label}</span>
     </Link>
   );
 }

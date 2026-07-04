@@ -575,11 +575,16 @@ export async function updateSellerLoginPassword(data: {
   current_password: string;
   password: string;
   password_confirmation: string;
+  password_verification_code: string;
 }) {
   return apiFetch<{ success: boolean; message: string }>(`/seller/account/login-password`, {
     method: "PUT",
     body: JSON.stringify(data),
   });
+}
+
+export async function getSellerPasswordVerificationCode() {
+  return apiFetch<{ success: boolean; code: string; expiresIn: number }>(`/seller/account/password-verification-code`);
 }
 
 export async function updateSellerTransactionPassword(data: {

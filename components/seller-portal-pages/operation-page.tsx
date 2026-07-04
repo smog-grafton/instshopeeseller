@@ -3,13 +3,35 @@
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import {
+  BadgeCheck,
+  BarChart3,
+  CreditCard,
+  ImageIcon,
+  KeyRound,
+  Landmark,
+  MessageCircle,
+  Package,
+  PackageCheck,
+  ScrollText,
+  ShieldCheck,
+  ShoppingBag,
+  Store,
+  TrendingUp,
+  Truck,
+  Upload,
+  Users,
+  WalletCards,
+} from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import {
   createSellerWalletAddress,
+  getCatalogProducts,
   getDepositPaymentMethods,
   getCountries,
   getBrowsingHistory,
   getFollowedStores,
+  getSellerPasswordVerificationCode,
   getSellerAccount,
   getSellerBankAccounts,
   getSellerBillingRecords,
@@ -19,6 +41,7 @@ import {
   getSellerSiteMessages,
   getSellerWalletAddresses,
   getSellerWithdrawalRecords,
+  getUiBlocksSafe,
   getWallet,
   requestWalletTopup,
   updateSellerAccountProfile,
@@ -29,8 +52,8 @@ import {
   uploadSellerShopCover,
   uploadSellerShopLogo,
 } from "@/lib/api-client";
-import type { CountryOption } from "@/lib/api-client";
-import { formatCurrencyAmount, resolveBackendAssetUrl } from "@/lib/utils";
+import type { ApiUiBlock, CountryOption } from "@/lib/api-client";
+import { formatCurrencyAmount, isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
 
 export type OperationPageKind =
   | "account"
@@ -263,38 +286,126 @@ function MetricCell({ label, value, tone = "red" }: { label: string; value: stri
   );
 }
 
-function QuickActionCard({
+function AccountToolGrid({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-lg border border-neutral-200 bg-white p-3 shadow-[0_8px_22px_rgba(15,23,42,0.06)] sm:p-4">
+      <h2 className="px-1 text-sm font-black text-neutral-950 sm:text-base">{title}</h2>
+      <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-4 lg:grid-cols-4">{children}</div>
+    </section>
+  );
+}
+
+function CompactTool({
   href,
   label,
-  helper,
-  iconSrc,
+  icon,
 }: {
   href: string;
   label: string;
-  helper: string;
-  iconSrc: string;
+  icon: React.ReactNode;
 }) {
   return (
-    <Link
-      href={href}
-      className="group relative flex min-h-36 min-w-0 flex-col justify-between overflow-hidden rounded-lg border border-neutral-200 bg-white p-4 no-underline shadow-[0_8px_24px_rgba(15,23,42,0.07)] transition hover:-translate-y-0.5 hover:border-red-200 hover:shadow-[0_14px_34px_rgba(15,23,42,0.12)]"
-    >
-      <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-600 via-orange-500 to-amber-400 opacity-0 transition group-hover:opacity-100" aria-hidden />
-      <div className="flex items-center justify-between gap-3">
-        <span className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-red-50 p-2.5 ring-1 ring-red-100">
-          <Image src={iconSrc} alt="" fill sizes="56px" className="object-contain p-2" />
-        </span>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 text-neutral-400 transition group-hover:border-red-200 group-hover:text-red-600" aria-label="Open">
-          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M7 4h9v9" />
-            <path d="M16 4 5 15" />
-          </svg>
+    <Link href={href} className="flex min-w-0 flex-col items-center gap-2 rounded-lg px-1 py-2 text-center no-underline transition hover:bg-orange-50">
+      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 text-[#ee4d2d] ring-1 ring-orange-100">
+        {icon}
+      </span>
+      <span className="line-clamp-2 min-h-8 text-[11px] font-bold leading-4 text-neutral-700">{label}</span>
+    </Link>
+  );
+}
+
+function resolveProductImage(product: RecordMap): string | null {
+  const direct = formatValue(product.thumbnail_url || product.image_url || product.image, "");
+  if (direct) return resolveBackendAssetUrl(direct) || direct;
+  const images = Array.isArray(product.images) ? product.images : [];
+  const first = objectValue(images[0]);
+  const fromImage = formatValue(first.image_path || first.url || first.path, "");
+  return fromImage ? resolveBackendAssetUrl(fromImage) || fromImage : null;
+}
+
+function moneyFromProduct(value: unknown, currency = "$") {
+  return money(value, currency);
+}
+
+function LandingProductCard({ product, currency }: { product: RecordMap; currency: string }) {
+  const imageUrl = resolveProductImage(product);
+  const price = Number(product.base_price ?? product.price ?? product.wholesale_price ?? 0);
+  const originalPrice = Number(product.compare_at_price ?? product.market_price ?? product.original_price ?? 0);
+  const title = formatValue(product.title || product.name, "Wholesale product");
+  const categoryRecord = objectValue(product.category);
+  const category = formatValue(product.category_slug || categoryRecord.name || product.supplier_name, "Wholesale");
+  const href = `/portal/wholesale-centre?product=${formatValue(product.id, "")}`;
+
+  return (
+    <Link href={href} className="group flex h-full min-w-0 flex-col overflow-hidden rounded-md border border-black/[0.09] bg-white no-underline shadow-sm transition hover:-translate-y-px hover:border-red-500 hover:shadow-md">
+      <div className="relative aspect-square bg-neutral-50">
+        {imageUrl ? (
+          <Image src={imageUrl} alt={title} fill sizes="(max-width: 640px) 50vw, 25vw" className="object-contain p-1" unoptimized={isBackendImage(imageUrl)} />
+        ) : (
+          <div className="flex h-full items-center justify-center text-xs text-neutral-400">No image</div>
+        )}
+        <span className="absolute left-2 top-2 max-w-[80%] truncate rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-bold text-red-600 shadow-sm">
+          {category}
         </span>
       </div>
-      <div>
-        <div className="truncate text-base font-black text-neutral-950 group-hover:text-red-600">{label}</div>
-        <div className="mt-1 line-clamp-2 text-xs leading-5 text-neutral-500">{helper}</div>
+      <div className="flex flex-1 flex-col p-2">
+        <div className="min-h-10 line-clamp-2 text-xs font-semibold leading-5 text-neutral-900 sm:text-sm">{title}</div>
+        <div className="mt-2 flex items-end gap-1">
+          <span className="text-sm font-black text-red-500 sm:text-base">{moneyFromProduct(price, currency)}</span>
+          {originalPrice > price ? (
+            <span className="mb-0.5 truncate text-[11px] text-neutral-400 line-through">{moneyFromProduct(originalPrice, currency)}</span>
+          ) : null}
+        </div>
+        <div className="mt-auto flex items-center justify-between pt-2">
+          <span className="truncate text-[11px] text-neutral-500">Supplier pick</span>
+          <span className="rounded bg-red-500 px-2 py-1 text-[11px] font-bold text-white">View</span>
+        </div>
       </div>
+    </Link>
+  );
+}
+
+function SellerAccountBanner({ banner }: { banner: ApiUiBlock }) {
+  const content = (
+    <div className="relative min-h-32 overflow-hidden rounded-lg bg-[#ee4d2d] px-5 py-5 text-white shadow-[0_12px_30px_rgba(238,77,45,0.18)]">
+      {banner.imageSrc ? (
+        <Image src={banner.imageSrc} alt="" fill sizes="100vw" className="object-cover" unoptimized={isBackendImage(banner.imageSrc)} />
+      ) : null}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/45 via-black/10 to-transparent" aria-hidden />
+      <div className="relative z-10 max-w-lg">
+        <div className="text-xs font-bold uppercase tracking-[0.16em] text-white/85">{banner.subtitle || "Merchant opportunity"}</div>
+        <div className="mt-2 text-2xl font-black leading-tight">{banner.title || "Discover products ready to sell"}</div>
+        <div className="mt-4 inline-flex h-10 items-center rounded-full bg-white px-4 text-sm font-black text-[#ee4d2d]">
+          {String(banner.meta?.ctaText || "Open now")}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (!banner.href || banner.href === "#") return content;
+  return <Link href={banner.href} className="block no-underline">{content}</Link>;
+}
+
+function ShopActionCard({
+  href,
+  label,
+  detail,
+  icon,
+}: {
+  href: string;
+  label: string;
+  detail: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <Link href={href} className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white p-3 no-underline shadow-[0_8px_22px_rgba(15,23,42,0.05)] transition hover:border-red-200 hover:bg-red-50/40">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-[#ee4d2d] ring-1 ring-orange-100">
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-black text-neutral-950">{label}</span>
+        <span className="mt-0.5 block truncate text-xs font-medium text-neutral-500">{detail}</span>
+      </span>
     </Link>
   );
 }
@@ -314,7 +425,9 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [walletForm, setWalletForm] = useState({ currency: "USDT", network: "ERC-20", address: "" });
   const [fundsForm, setFundsForm] = useState({ amount: "", methodId: "", reference: "", notes: "", proof: null as File | null });
-  const [loginPasswordForm, setLoginPasswordForm] = useState({ current_password: "", password: "", password_confirmation: "" });
+  const [loginPasswordForm, setLoginPasswordForm] = useState({ current_password: "", password: "", password_confirmation: "", password_verification_code: "" });
+  const [passwordCode, setPasswordCode] = useState("");
+  const [passwordCodeLoading, setPasswordCodeLoading] = useState(false);
   const [transactionPasswordForm, setTransactionPasswordForm] = useState({ current_password: "", password: "", password_confirmation: "" });
   const [shippingForm, setShippingForm] = useState({ shipping_address: "", telephone: "", consignee_name: "" });
   const [shopForm, setShopForm] = useState({ name: "", description: "", status_text: "", store_news: "" });
@@ -328,14 +441,22 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
   const [emailBindForm, setEmailBindForm] = useState({ oldCode: "", newEmail: "", newCode: "" });
   const [oldEmailCode, setOldEmailCode] = useState("");
   const [newEmailCode, setNewEmailCode] = useState("");
+  const [landingProducts, setLandingProducts] = useState<RecordMap[]>([]);
+  const [accountBanners, setAccountBanners] = useState<ApiUiBlock[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setNotice("");
     try {
       if (kind === "account") {
-        const res = await getSellerAccount();
+        const [res, productsRes, banners] = await Promise.all([
+          getSellerAccount(),
+          getCatalogProducts({ listing_type: "wholesale_centre", per_page: 8 }).catch(() => null),
+          getUiBlocksSafe({ key: "seller_my_account" }),
+        ]);
         setData({ account: res.account });
+        setLandingProducts((productsRes?.products?.data || []).slice(0, 8).filter(isRecord));
+        setAccountBanners(banners);
       } else if (kind === "current-balance") {
         const res = await getWallet();
         setData({ wallet: res.wallet });
@@ -491,9 +612,28 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
   };
 
   const submitLoginPassword = async () => {
+    if (!loginPasswordForm.password_verification_code.trim()) {
+      setNotice("Enter the verification code shown above.");
+      return false;
+    }
     await updateSellerLoginPassword(loginPasswordForm);
-    setLoginPasswordForm({ current_password: "", password: "", password_confirmation: "" });
+    setLoginPasswordForm({ current_password: "", password: "", password_confirmation: "", password_verification_code: "" });
+    setPasswordCode("");
     setNotice("Login password updated.");
+    return true;
+  };
+
+  const refreshPasswordCode = async () => {
+    setPasswordCodeLoading(true);
+    try {
+      const res = await getSellerPasswordVerificationCode();
+      setPasswordCode(res.code);
+      setLoginPasswordForm((form) => ({ ...form, password_verification_code: "" }));
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Unable to load verification code.");
+    } finally {
+      setPasswordCodeLoading(false);
+    }
   };
 
   const submitTransactionPassword = async () => {
@@ -501,6 +641,7 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
     setTransactionPasswordForm({ current_password: "", password: "", password_confirmation: "" });
     setNotice("Transaction password updated.");
     await load();
+    return true;
   };
 
   const submitShipping = async () => {
@@ -596,34 +737,6 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
 
   const accountBalance = Number(stats.account_balance ?? wallet.available_balance ?? wallet.balance ?? 0);
   const lowBalance = accountBalance < 200;
-  const quickActions = [
-    { href: "/portal/my-shop", label: "Store Details", helper: "Update storefront profile and brand details.", iconSrc: "/assets/images/icons/store.png" },
-    { href: "/portal/products/my-products", label: "Store Products", helper: "Review listings, stock, and prices.", iconSrc: "/assets/images/icons/product.png" },
-    { href: "/portal/wholesale-centre", label: "Wholesale Center", helper: "Source products for your catalog.", iconSrc: "/assets/images/icons/wholesale.png" },
-    { href: "/portal/orders/my-orders", label: "Store Orders", helper: "Process orders and shipping details.", iconSrc: "/assets/images/icons/store-orders.png" },
-    { href: "/portal/wallet-management", label: "Wallet", helper: "Recharge and manage payout addresses.", iconSrc: "/assets/images/icons/wallet.png" },
-    { href: "/portal/withdraw", label: "Withdraw", helper: "Request a payout from available funds.", iconSrc: "/assets/images/icons/withdraw.png" },
-    { href: "/portal/my-message", label: "Messages", helper: "Reply to customers and support.", iconSrc: "/assets/images/icons/messages.png" },
-    { href: "/portal/site-message", label: "Site Messages", helper: "Read platform notices and alerts.", iconSrc: "/assets/images/icons/site-message.png" },
-    { href: "/portal/customer-service/chat-management?support=1", label: "Customer Support", helper: "Open a support conversation.", iconSrc: "/assets/images/icons/customer-support.png" },
-    { href: "/portal/my-account", label: "Account Security", helper: "Manage login and transaction passwords.", iconSrc: "/assets/images/icons/security.png" },
-    { href: "/portal/orders/shipping-setting", label: "Processing Rules", helper: "Review delivery and processing setup.", iconSrc: "/assets/images/icons/rules.png" },
-    { href: "/terms-of-service", label: "Terms & Policies", helper: "Review marketplace operating rules.", iconSrc: "/assets/images/icons/policies.png" },
-    { href: "/portal/current-balance", label: "Current Balance", helper: "Review funds available for account activity.", iconSrc: "/assets/images/icons/wallet.png" },
-    { href: "/portal/my-order", label: "My Order", helper: "View your marketplace order history.", iconSrc: "/assets/images/icons/store-orders.png" },
-    { href: "/portal/billing-details", label: "Billing Details", helper: "Check account billing and wallet movements.", iconSrc: "/assets/images/icons/wallet.png" },
-    { href: "/portal/recharge-record", label: "Recharge Record", helper: "Track wallet top-up requests and outcomes.", iconSrc: "/assets/images/icons/wallet.png" },
-    { href: "/portal/withdrawals-record", label: "Withdrawals Record", helper: "Review payout requests and release status.", iconSrc: "/assets/images/icons/withdraw.png" },
-    { href: "/portal/bank-card-management", label: "Bank Cards", helper: "Manage payout bank account details.", iconSrc: "/assets/images/icons/wallet.png" },
-    { href: "/portal/shipping-address-management", label: "Shipping Address", helper: "Manage pickup and shipping profile details.", iconSrc: "/assets/images/icons/rules.png" },
-    { href: "/portal/stores-you-follow", label: "Followed Stores", helper: "Review stores saved from buyer activity.", iconSrc: "/assets/images/icons/store.png" },
-    { href: "/portal/browsing-history", label: "Browsing History", helper: "Open recently viewed marketplace items.", iconSrc: "/assets/images/icons/product.png" },
-    { href: "/portal/wholesale-center", label: "Wholesale Catalog", helper: "Open the wholesale sourcing catalog.", iconSrc: "/assets/images/icons/wholesale.png" },
-    { href: "/portal/store-news", label: "Store News", helper: "Update shop announcements and store news.", iconSrc: "/assets/images/icons/site-message.png" },
-    { href: "/portal/product-management", label: "Product Management", helper: "Open product management tools and status.", iconSrc: "/assets/images/icons/product.png" },
-    { href: "/portal/store-order-management", label: "Pending Orders", helper: "Open the pending order operations queue.", iconSrc: "/assets/images/icons/store-orders.png" },
-  ];
-
   return (
     <div className="mx-auto max-w-7xl space-y-7 pb-12">
       <PageHeader title={titles[kind]} onRefresh={load} />
@@ -684,47 +797,57 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
             </div>
           </section>
 
-          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {quickActions.map((item) => (
-              <QuickActionCard key={item.href} {...item} />
-            ))}
+          <section className="grid gap-3 lg:grid-cols-4">
+            <AccountToolGrid title="Store Tools">
+              <CompactTool href="/portal/wholesale-centre" label="Wholesale" icon={<ShoppingBag className="h-5 w-5" />} />
+              <CompactTool href="/portal/products/my-products" label="Products" icon={<PackageCheck className="h-5 w-5" />} />
+              <CompactTool href="/portal/orders/my-orders" label="Orders" icon={<Truck className="h-5 w-5" />} />
+              <CompactTool href="/portal/my-shop" label="My Shop" icon={<Store className="h-5 w-5" />} />
+            </AccountToolGrid>
+            <AccountToolGrid title="Money">
+              <CompactTool href="/portal/wallet-management" label="Wallet" icon={<WalletCards className="h-5 w-5" />} />
+              <CompactTool href="/portal/recharge-record" label="Recharge" icon={<CreditCard className="h-5 w-5" />} />
+              <CompactTool href="/portal/withdraw" label="Withdraw" icon={<Landmark className="h-5 w-5" />} />
+              <CompactTool href="/portal/withdrawals-record" label="Records" icon={<ScrollText className="h-5 w-5" />} />
+            </AccountToolGrid>
+            <AccountToolGrid title="Communication">
+              <CompactTool href="/portal/my-message" label="Chat" icon={<MessageCircle className="h-5 w-5" />} />
+              <CompactTool href="/portal/site-message" label="Messages" icon={<ScrollText className="h-5 w-5" />} />
+              <CompactTool href="/portal/customer-service/chat-management?support=1" label="Support" icon={<MessageCircle className="h-5 w-5" />} />
+              <CompactTool href="/terms-of-service" label="Policies" icon={<ShieldCheck className="h-5 w-5" />} />
+            </AccountToolGrid>
+            <AccountToolGrid title="Account">
+              <CompactTool href="/portal/my-shop" label="Store Details" icon={<Store className="h-5 w-5" />} />
+              <CompactTool href="#account-security" label="Password" icon={<KeyRound className="h-5 w-5" />} />
+              <CompactTool href="/portal/orders/shipping-setting" label="Rules" icon={<ScrollText className="h-5 w-5" />} />
+              <CompactTool href="/portal/bank-card-management" label="Bank Cards" icon={<CreditCard className="h-5 w-5" />} />
+            </AccountToolGrid>
           </section>
 
-          <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className={`${panel} rounded-lg p-5`}>
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-lg font-bold text-neutral-950">Order Summary</div>
-                  <div className="text-sm text-neutral-500">Next actions across active orders</div>
-                </div>
-                <Link href="/portal/orders/my-orders" className="text-sm font-semibold text-red-600 no-underline">View orders</Link>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <MetricCell label="Pending processing" value={formatValue(stats.today_order_count)} tone="orange" />
-                <MetricCell label="Processing" value={formatValue(stats.total_sales_today)} tone="blue" />
-                <MetricCell label="Awaiting confirmation" value={formatValue(stats.cumulative_order_quantity)} tone="red" />
-                <MetricCell label="Completed" value={formatValue(stats.total_sales)} tone="green" />
-                <MetricCell label="Frozen" value={formatValue(stats.frozen_orders)} tone="slate" />
-                <MetricCell label="Refund / after-sales" value={formatValue(stats.refund_orders)} tone="red" />
-              </div>
-            </div>
+          {accountBanners[0] ? <SellerAccountBanner banner={accountBanners[0]} /> : null}
 
-            <div className={`${panel} rounded-lg p-5`}>
-              <div className="mb-4">
-                <div className="text-lg font-bold text-neutral-950">Wallet Summary</div>
-                <div className="text-sm text-neutral-500">Funds available for processing and payouts</div>
+          <section className={`${panel} rounded-lg p-4 sm:p-5`}>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <div className="text-lg font-black text-neutral-950">Landing Products</div>
+                <div className="text-sm text-neutral-500">Wholesale products ready for your storefront</div>
               </div>
-              <div className="grid gap-3">
-                <MetricCell label="Available balance" value={money(accountBalance, walletCurrency)} tone="green" />
-                <MetricCell label="Pending withdrawal" value={money(stats.pending_withdrawal, walletCurrency)} tone="orange" />
-                <MetricCell label="Locked processing funds" value={money(stats.locked_processing_funds, walletCurrency)} tone="blue" />
-                <MetricCell label="Today's profit" value={money(stats.today_profit, walletCurrency)} tone="red" />
-                <MetricCell label="Total profit" value={money(stats.sales_profit, walletCurrency)} tone="slate" />
-              </div>
+              <Link href="/portal/wholesale-centre" className="text-sm font-bold text-red-600 no-underline">View all</Link>
             </div>
+            {landingProducts.length ? (
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {landingProducts.slice(0, 8).map((product) => (
+                  <LandingProductCard key={formatValue(product.id)} product={product} currency={walletCurrency} />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-neutral-200 bg-neutral-50 px-4 py-8 text-center text-sm font-medium text-neutral-500">
+                No wholesale products available right now.
+              </div>
+            )}
           </section>
 
-          <section className={`${panel} rounded-lg p-5`}>
+          <section id="account-security" className={`${panel} rounded-lg p-5`}>
             <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
               <div>
                 <div className="text-lg font-bold text-neutral-950">Account Security</div>
@@ -735,7 +858,10 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
                   }}>{account.username ? "Modify" : "Add"}</button>} />
                   <InfoRow label="Phone number" value={account.phone ? String(account.phone) : "Not bound"} action={<button className="text-sm font-semibold text-red-700" onClick={() => setAccountModal("phone")}>{account.phone ? "Modify" : "Bind"}</button>} />
                   <InfoRow label="Email" value={maskEmail(formatValue(account.email, ""))} action={<button className="text-sm font-semibold text-red-700" onClick={() => setAccountModal("email")}>{account.email ? "Modify" : "Bind"}</button>} />
-                  <InfoRow label="Login password" value="******" action={<button className="text-sm font-semibold text-red-700" onClick={() => setAccountModal("login-password")}>Modify</button>} />
+                  <InfoRow label="Login password" value="******" action={<button className="text-sm font-semibold text-red-700" onClick={() => {
+                    setAccountModal("login-password");
+                    void refreshPasswordCode();
+                  }}>Modify</button>} />
                   <InfoRow label="Transaction password" value="******" action={<button className="text-sm font-semibold text-red-700" onClick={() => setAccountModal("transaction-password")}>{account.transaction_password_bound ? "Modify" : "Bind"}</button>} />
                 </div>
               </div>
@@ -867,66 +993,116 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
 
       {!loading && kind === "my-shop" ? (
         <>
-          <section className="border-b border-neutral-200 pb-8">
-            {resolveBackendAssetUrl(formatValue(shop.cover_image_url, "")) ? (
-              <div className="mb-6 h-48 bg-neutral-100 bg-cover bg-center" style={{ backgroundImage: `url(${resolveBackendAssetUrl(formatValue(shop.cover_image_url, ""))})` }} />
-            ) : null}
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-              {resolveBackendAssetUrl(formatValue(shop.logo_url, "")) ? (
-                <div className="h-36 w-36 shrink-0 bg-cover bg-center" style={{ backgroundImage: `url(${resolveBackendAssetUrl(formatValue(shop.logo_url, ""))})` }} />
-              ) : (
-                <div className="flex h-36 w-36 shrink-0 items-center justify-center bg-neutral-200 text-4xl font-bold text-neutral-500">
-                  {formatValue(shop.name, "S").slice(0, 1)}
+          <section className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-[0_12px_32px_rgba(15,23,42,0.08)]">
+            <div
+              className="relative min-h-44 bg-[linear-gradient(135deg,#ee4d2d_0%,#ff7648_48%,#f7b733_100%)] bg-cover bg-center sm:min-h-56"
+              style={resolveBackendAssetUrl(formatValue(shop.cover_image_url, "")) ? { backgroundImage: `linear-gradient(90deg,rgba(0,0,0,.42),rgba(0,0,0,.08)),url(${resolveBackendAssetUrl(formatValue(shop.cover_image_url, ""))})` } : undefined}
+            >
+              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3 sm:bottom-5 sm:left-6 sm:right-6">
+                <div className="flex min-w-0 items-end gap-3">
+                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-white shadow-xl ring-4 ring-white/50 sm:h-24 sm:w-24">
+                    {resolveBackendAssetUrl(formatValue(shop.logo_url, "")) ? (
+                      <img src={resolveBackendAssetUrl(formatValue(shop.logo_url, "")) || ""} alt="Shop logo" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-neutral-100 text-3xl font-black text-neutral-500">
+                        {formatValue(shop.name, "S").slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 pb-1 text-white">
+                    <div className="truncate text-2xl font-black leading-tight sm:text-3xl">{formatValue(shop.name, "My shop")}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-white/90">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/18 px-2.5 py-1 backdrop-blur">
+                        <BadgeCheck className="h-3.5 w-3.5" />
+                        {formatValue(shop.status_text, "Official Store")}
+                      </span>
+                      <span>{formatValue(shop.store_level, "Crown, stars, stars")}</span>
+                    </div>
+                  </div>
                 </div>
-              )}
-              <div className="space-y-5 text-2xl text-black">
-                <div>Store Name: <span className="font-bold">{formatValue(shop.name, "My shop")}</span></div>
-                <div>Account Balance: <span className="font-bold">{Number(wallet.available_balance ?? wallet.balance ?? 0).toFixed(2)}</span></div>
-                <div>Store Level: <span className="font-bold">{formatValue(shop.store_level, "Crown, stars, stars")}</span></div>
+                <div className="hidden rounded-lg bg-white/95 px-4 py-3 text-right shadow-lg sm:block">
+                  <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500">Available</div>
+                  <div className="mt-1 text-xl font-black text-red-600">{money(wallet.available_balance, walletCurrency)}</div>
+                </div>
               </div>
             </div>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <label className={lightButton}>
+            <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-3 text-sm font-bold text-neutral-800 hover:border-red-300 hover:bg-red-50/40">
+                <Upload className="h-5 w-5 text-[#ee4d2d]" />
                 {shopUploading === "logo" ? "Uploading logo..." : "Upload logo"}
                 <input className="hidden" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => uploadShopMedia(event, "logo")} disabled={shopUploading !== null} />
               </label>
-              <label className={lightButton}>
+              <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-3 text-sm font-bold text-neutral-800 hover:border-red-300 hover:bg-red-50/40">
+                <ImageIcon className="h-5 w-5 text-[#ee4d2d]" />
                 {shopUploading === "cover" ? "Uploading cover..." : "Upload cover"}
                 <input className="hidden" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => uploadShopMedia(event, "cover")} disabled={shopUploading !== null} />
               </label>
+              <ShopActionCard href="/portal/products/my-products" label="Products" detail="Manage listings" icon={<Package className="h-5 w-5" />} />
+              <ShopActionCard href="/portal/orders/my-orders" label="Orders" detail="Process fulfilment" icon={<Truck className="h-5 w-5" />} />
             </div>
           </section>
-          <div className="grid md:grid-cols-3">
-            <MetricCell label="Number of Products" value={formatValue(shopStats.products_count)} />
-            <MetricCell label="Total sales today" value={formatValue(shopStats.total_sales_today)} />
-            <MetricCell label="Total sales" value={formatValue(shopStats.total_sales)} />
-            <MetricCell label="Today's order" value={formatValue(shopStats.today_order_count)} />
-            <MetricCell label="Cumulative order quantity" value={formatValue(shopStats.cumulative_order_quantity)} />
-            <MetricCell label="Sales profit" value={formatValue(shopStats.sales_profit)} />
-            <MetricCell label="Number of followers" value={formatValue(shopStats.followers_count)} />
-            <MetricCell label="Today's profit" value={formatValue(shopStats.today_profit)} />
-            <MetricCell label="Account Balance" value={money(wallet.available_balance, walletCurrency)} />
-          </div>
-          <section className={`${panel} p-5`}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="block">
-                <span className="text-sm font-semibold text-neutral-700">Store name</span>
-                <input className={`${input} mt-2`} value={shopForm.name} onChange={(event) => setShopForm((form) => ({ ...form, name: event.target.value }))} />
-              </label>
-              <label className="block">
-                <span className="text-sm font-semibold text-neutral-700">Store status text</span>
-                <input className={`${input} mt-2`} placeholder="Official Store" value={shopForm.status_text} onChange={(event) => setShopForm((form) => ({ ...form, status_text: event.target.value }))} />
-              </label>
-              <label className="block md:col-span-2">
-                <span className="text-sm font-semibold text-neutral-700">Description</span>
-                <textarea className={`${input} mt-2 h-28 py-3`} value={shopForm.description} onChange={(event) => setShopForm((form) => ({ ...form, description: event.target.value }))} />
-              </label>
-              <label className="block md:col-span-2">
-                <span className="text-sm font-semibold text-neutral-700">Store news</span>
-                <textarea className={`${input} mt-2 h-28 py-3`} value={shopForm.store_news} onChange={(event) => setShopForm((form) => ({ ...form, store_news: event.target.value }))} />
-              </label>
+
+          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <MetricCell label="Products listed" value={formatValue(shopStats.products_count)} tone="orange" />
+            <MetricCell label="Orders today" value={formatValue(shopStats.today_order_count)} tone="red" />
+            <MetricCell label="Total sales" value={money(shopStats.total_sales, walletCurrency)} tone="green" />
+            <MetricCell label="Followers" value={formatValue(shopStats.followers_count)} tone="blue" />
+            <MetricCell label="Sales profit" value={money(shopStats.sales_profit, walletCurrency)} tone="green" />
+            <MetricCell label="Today's profit" value={money(shopStats.today_profit, walletCurrency)} tone="red" />
+            <MetricCell label="Cumulative orders" value={formatValue(shopStats.cumulative_order_quantity)} tone="slate" />
+            <MetricCell label="Wallet balance" value={money(wallet.available_balance, walletCurrency)} tone="orange" />
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-[1fr_360px]">
+            <div className={`${panel} rounded-lg p-4 sm:p-5`}>
+              <div className="mb-4 flex items-center gap-2">
+                <Store className="h-5 w-5 text-[#ee4d2d]" />
+                <div className="text-lg font-black text-neutral-950">Shop profile</div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="text-sm font-semibold text-neutral-700">Store name</span>
+                  <input className={`${input} mt-2`} value={shopForm.name} onChange={(event) => setShopForm((form) => ({ ...form, name: event.target.value }))} />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-neutral-700">Store status text</span>
+                  <input className={`${input} mt-2`} placeholder="Official Store" value={shopForm.status_text} onChange={(event) => setShopForm((form) => ({ ...form, status_text: event.target.value }))} />
+                </label>
+                <label className="block md:col-span-2">
+                  <span className="text-sm font-semibold text-neutral-700">Description</span>
+                  <textarea className={`${input} mt-2 h-28 py-3`} value={shopForm.description} onChange={(event) => setShopForm((form) => ({ ...form, description: event.target.value }))} />
+                </label>
+                <label className="block md:col-span-2">
+                  <span className="text-sm font-semibold text-neutral-700">Store news</span>
+                  <textarea className={`${input} mt-2 h-28 py-3`} value={shopForm.store_news} onChange={(event) => setShopForm((form) => ({ ...form, store_news: event.target.value }))} />
+                </label>
+              </div>
+              <button className={`${redButton} mt-5 rounded`} onClick={submitShopProfile}>Save shop profile</button>
             </div>
-            <button className={`${redButton} mt-5`} onClick={submitShopProfile}>Save shop profile</button>
+            <aside className="grid content-start gap-3">
+              <ShopActionCard href="/portal/wholesale-centre" label="Wholesale center" detail="Source new goods" icon={<ShoppingBag className="h-5 w-5" />} />
+              <ShopActionCard href="/portal/wallet-management" label="Wallet" detail="Recharge balance" icon={<WalletCards className="h-5 w-5" />} />
+              <ShopActionCard href="/portal/withdraw" label="Withdraw" detail="Request payout" icon={<Landmark className="h-5 w-5" />} />
+              <ShopActionCard href="/portal/my-message" label="Messages" detail="Reply to customers" icon={<MessageCircle className="h-5 w-5" />} />
+              <div className={`${panel} rounded-lg p-4`}>
+                <div className="flex items-center gap-2 text-sm font-black text-neutral-950">
+                  <BarChart3 className="h-5 w-5 text-[#ee4d2d]" />
+                  Store health
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-lg bg-neutral-50 p-3">
+                    <TrendingUp className="h-5 w-5 text-emerald-600" />
+                    <div className="mt-2 font-black text-neutral-950">{formatValue(shopStats.total_sales_today)}</div>
+                    <div className="text-xs text-neutral-500">Sales today</div>
+                  </div>
+                  <div className="rounded-lg bg-neutral-50 p-3">
+                    <Users className="h-5 w-5 text-sky-600" />
+                    <div className="mt-2 font-black text-neutral-950">{formatValue(shopStats.followers_count)}</div>
+                    <div className="text-xs text-neutral-500">Followers</div>
+                  </div>
+                </div>
+              </div>
+            </aside>
           </section>
         </>
       ) : null}
@@ -1221,6 +1397,18 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
                   <input className={input} type="password" value={loginPasswordForm.current_password} onChange={(event) => setLoginPasswordForm((form) => ({ ...form, current_password: event.target.value }))} placeholder="Current password" />
                   <input className={input} type="password" value={loginPasswordForm.password} onChange={(event) => setLoginPasswordForm((form) => ({ ...form, password: event.target.value }))} placeholder="New password" />
                   <input className={input} type="password" value={loginPasswordForm.password_confirmation} onChange={(event) => setLoginPasswordForm((form) => ({ ...form, password_confirmation: event.target.value }))} placeholder="Confirm new password" />
+                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">Verification code</div>
+                        <div className="mt-1 font-mono text-2xl font-black tracking-[0.18em] text-neutral-950">{passwordCode || "------"}</div>
+                      </div>
+                      <button type="button" className={`${lightButton} h-10 px-3 text-xs`} onClick={refreshPasswordCode} disabled={passwordCodeLoading}>
+                        {passwordCodeLoading ? "Loading..." : "Refresh"}
+                      </button>
+                    </div>
+                  </div>
+                  <input className={input} value={loginPasswordForm.password_verification_code} onChange={(event) => setLoginPasswordForm((form) => ({ ...form, password_verification_code: event.target.value.toUpperCase() }))} placeholder="Enter verification code" />
                 </>
               ) : (
                 <>
@@ -1233,12 +1421,13 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
             <button
               className={`${redButton} mt-8 h-14 w-full text-xl`}
               onClick={async () => {
+                let saved = false;
                 if (accountModal === "login-password") {
-                  await submitLoginPassword();
+                  saved = await submitLoginPassword();
                 } else {
-                  await submitTransactionPassword();
+                  saved = await submitTransactionPassword();
                 }
-                setAccountModal(null);
+                if (saved) setAccountModal(null);
               }}
             >
               Submit

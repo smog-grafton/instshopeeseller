@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   addCatalogProductToShop,
   getCatalogProduct,
@@ -167,6 +168,8 @@ function isProductDistributed(
 }
 
 export default function WholesaleCentrePage() {
+  const searchParams = useSearchParams();
+  const openedProductRef = useRef<string | null>(null);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogProducts, setCatalogProducts] = useState<any[]>([]);
   const [catalogCategories, setCatalogCategories] = useState<string[]>([]);
@@ -271,6 +274,31 @@ export default function WholesaleCentrePage() {
   useEffect(() => {
     void loadCatalog({ page: 1 });
   }, []);
+
+  useEffect(() => {
+    const productParam = searchParams.get("product");
+    if (!productParam || openedProductRef.current === productParam) return;
+
+    const productId = Number(productParam);
+    if (!Number.isFinite(productId) || productId <= 0) return;
+
+    openedProductRef.current = productParam;
+    setSelectedProductId(productId);
+    setSelectedProduct(null);
+    setSelectedImage(null);
+    setDetailLoading(true);
+
+    getCatalogProduct(productId)
+      .then((res) => {
+        setSelectedProduct(res.product);
+        setSelectedImage(resolveCatalogThumbnail(res.product));
+      })
+      .catch((error: any) => {
+        alert(error?.message || "Unable to load full product details.");
+        closeDetails();
+      })
+      .finally(() => setDetailLoading(false));
+  }, [searchParams]);
 
   const handleSearch = () => {
     setCatalogPage(1);

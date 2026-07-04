@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import {
@@ -187,6 +187,9 @@ export default function OnboardingFormPage() {
   const [identityFrontPreview, setIdentityFrontPreview] = useState<string | null>(null);
   const [identityBackPreview, setIdentityBackPreview] = useState<string | null>(null);
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
+  const [selfieCameraOpen, setSelfieCameraOpen] = useState(false);
+  const [selfieCameraError, setSelfieCameraError] = useState("");
+  const [selfieCameraLoading, setSelfieCameraLoading] = useState(false);
   const [businessRegistrationUrl, setBusinessRegistrationUrl] = useState("");
   // Step 4
   const [bankAccountName, setBankAccountName] = useState("");
@@ -204,6 +207,9 @@ export default function OnboardingFormPage() {
   ];
   const MAX_IMAGE_MB = 5;
   const MAX_PDF_MB = 10;
+  const selfieVideoRef = useRef<HTMLVideoElement | null>(null);
+  const selfieCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const selfieStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -278,6 +284,20 @@ export default function OnboardingFormPage() {
 
     return () => URL.revokeObjectURL(previewUrl);
   }, [selfieFile]);
+
+  useEffect(() => {
+    if (selfieCameraOpen && selfieVideoRef.current && selfieStreamRef.current) {
+      selfieVideoRef.current.srcObject = selfieStreamRef.current;
+      void selfieVideoRef.current.play();
+    }
+  }, [selfieCameraOpen]);
+
+  useEffect(() => {
+    return () => {
+      selfieStreamRef.current?.getTracks().forEach((track) => track.stop());
+      selfieStreamRef.current = null;
+    };
+  }, []);
 
   const loadCountries = async () => {
     try {
@@ -493,6 +513,67 @@ export default function OnboardingFormPage() {
     }
 
     setter(file);
+  };
+
+  const closeSelfieCamera = () => {
+    selfieStreamRef.current?.getTracks().forEach((track) => track.stop());
+    selfieStreamRef.current = null;
+    if (selfieVideoRef.current) {
+      selfieVideoRef.current.srcObject = null;
+    }
+    setSelfieCameraOpen(false);
+  };
+
+  const openSelfieCamera = async () => {
+    setSelfieCameraError("");
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setSelfieCameraError("Camera is not available in this browser.");
+      return;
+    }
+
+    setSelfieCameraLoading(true);
+    try {
+      closeSelfieCamera();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user" },
+        audio: false,
+      });
+      selfieStreamRef.current = stream;
+      setSelfieCameraOpen(true);
+    } catch {
+      setSelfieCameraError("Unable to open the camera. Check browser camera permissions.");
+    } finally {
+      setSelfieCameraLoading(false);
+    }
+  };
+
+  const captureSelfie = () => {
+    const video = selfieVideoRef.current;
+    const canvas = selfieCanvasRef.current;
+    if (!video || !canvas) {
+      setSelfieCameraError("Camera preview is not ready yet.");
+      return;
+    }
+
+    const width = video.videoWidth || 1280;
+    const height = video.videoHeight || 960;
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.drawImage(video, 0, 0, width, height);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        setSelfieCameraError("Unable to capture image. Try again.");
+        return;
+      }
+
+      const file = new File([blob], `selfie-with-id-${Date.now()}.jpg`, { type: "image/jpeg" });
+      selectImageFile(file, setSelfieFile);
+      setExistingSelfie(false);
+      setExistingSelfiePath(null);
+      closeSelfieCamera();
+    }, "image/jpeg", 0.9);
   };
 
   const identityFrontPreviewUrl = identityFrontPreview ?? resolveBackendAssetUrl(existingIdentityFrontPath);
@@ -959,6 +1040,40 @@ export default function OnboardingFormPage() {
                           setExistingSelfiePath(null);
                         }}
                       />
+
+                      <div className="flex items-start mb-6">
+                        <label className="w-[200px] flex items-center justify-end min-h-8 mr-4 text-sm text-right flex-shrink-0 leading-4 pt-1" />
+                        <div className="flex-1 max-w-[520px] rounded-xl border border-orange-100 bg-orange-50/60 p-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900">Take selfie now</div>
+                              <p className="mt-1 text-xs leading-5 text-gray-500">Use the front camera, hold your ID beside your face, then capture.</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <button type="button" onClick={openSelfieCamera} disabled={selfieCameraLoading} className="h-9 rounded border border-orange-200 bg-white px-3 text-sm font-medium text-orange-700 hover:bg-orange-100 disabled:opacity-60">
+                                {selfieCameraLoading ? "Opening..." : selfieCameraOpen ? "Restart camera" : "Open camera"}
+                              </button>
+                              {selfieCameraOpen ? (
+                                <button type="button" onClick={closeSelfieCamera} className="h-9 rounded border border-gray-200 bg-white px-3 text-sm text-gray-600 hover:bg-gray-50">
+                                  Close
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                          {selfieCameraError ? <p className="mt-2 text-xs font-medium text-red-600">{selfieCameraError}</p> : null}
+                          {selfieCameraOpen ? (
+                            <div className="mt-3 overflow-hidden rounded-lg border border-orange-100 bg-black">
+                              <video ref={selfieVideoRef} playsInline muted className="aspect-video w-full object-cover" />
+                              <div className="flex justify-end bg-white p-2">
+                                <button type="button" onClick={captureSelfie} className="h-9 rounded bg-orange-600 px-4 text-sm font-semibold text-white hover:bg-orange-700">
+                                  Capture selfie
+                                </button>
+                              </div>
+                            </div>
+                          ) : null}
+                          <canvas ref={selfieCanvasRef} className="hidden" />
+                        </div>
+                      </div>
 
                       <div className="flex items-start mb-6">
                         <label className="w-[200px] flex items-center justify-end min-h-8 mr-4 text-sm text-right flex-shrink-0 leading-4 pt-1">
