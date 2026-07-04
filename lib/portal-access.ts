@@ -48,6 +48,17 @@ function isAccountPath(pathname: string): boolean {
   return pathname === "/portal/my-account";
 }
 
+function isSuspendedAllowedPath(pathname: string): boolean {
+  return [
+    "/portal/my-account",
+    "/portal/dashboard",
+    "/portal/wallet-management",
+    "/portal/current-balance",
+    "/portal/my-message",
+    "/portal/customer-service/chat-management",
+  ].some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
+
 export function canUseSellerStoreTools(user?: ApiUser | null): boolean {
   return resolveSellerPortalAccessState(user) === "approved" && user?.hasSellerInvitationCode !== false;
 }
@@ -113,8 +124,12 @@ export function resolveSellerPortalRoute(user: ApiUser, pathname: string, allowM
     return isOnboardingPath(pathname) || pathname === "/portal/dashboard" ? { type: "internal", href: "/portal/my-account" } : null;
   }
 
-  if (state === "pending" || state === "suspended") {
+  if (state === "pending") {
     return isDashboardPath(pathname) ? null : { type: "internal", href: "/portal/my-account" };
+  }
+
+  if (state === "suspended") {
+    return isSuspendedAllowedPath(pathname) ? null : { type: "internal", href: "/portal/my-account" };
   }
 
   return isOnboardingPath(pathname) ? null : { type: "internal", href: "/portal/my-onboarding" };

@@ -162,12 +162,13 @@ function PageHeader({ title, onRefresh }: { title: string; onRefresh?: () => voi
   );
 }
 
-function ReviewStatusPanel({ status }: { status?: string | null }) {
+function ReviewStatusPanel({ status, suspension }: { status?: string | null; suspension?: RecordMap }) {
   if (status !== "pending" && status !== "suspended") {
     return null;
   }
 
   const isPending = status === "pending";
+  const suspensionButtons = Array.isArray(suspension?.action_buttons) ? suspension.action_buttons.filter(isRecord) : [];
 
   return (
     <section className={`${panel} overflow-hidden`}>
@@ -181,8 +182,24 @@ function ReviewStatusPanel({ status }: { status?: string | null }) {
             <p className="mt-3 max-w-3xl text-sm leading-6">
               {isPending
                 ? "Thank you for your submission. Your account is currently under review by our verification team. This process may take up to 24 hours to complete."
-                : "Your seller account is currently suspended. Store management tools will remain unavailable until the account is restored."}
+                : formatValue(suspension?.message, "Your seller account is currently suspended. Store management tools will remain unavailable until the account is restored.")}
             </p>
+            {!isPending && suspensionButtons.length ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {suspensionButtons.map((button, index) => {
+                  const isPrimary = button.style === "primary";
+                  return (
+                    <Link
+                      key={`${formatValue(button.href)}-${index}`}
+                      href={formatValue(button.href, "/portal/my-message?support=1")}
+                      className={`inline-flex h-10 items-center justify-center rounded px-4 text-sm font-bold no-underline ${isPrimary ? "bg-red-600 text-white" : "bg-white text-red-700 ring-1 ring-red-200"}`}
+                    >
+                      {formatValue(button.label, "Open")}
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
           <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${isPending ? "bg-white/80 text-amber-700" : "bg-white/80 text-red-700"}`}>
             {isPending ? "Pending review" : "Suspended"}
@@ -192,15 +209,15 @@ function ReviewStatusPanel({ status }: { status?: string | null }) {
       <div className="grid gap-px bg-neutral-200 sm:grid-cols-3">
         <div className="bg-white px-5 py-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">Current step</div>
-          <div className="mt-2 text-sm font-semibold text-neutral-900">{isPending ? "Verification in progress" : "Access review"}</div>
+          <div className="mt-2 text-sm font-semibold text-neutral-900">{isPending ? "Verification in progress" : formatValue(suspension?.title, "Access review")}</div>
         </div>
         <div className="bg-white px-5 py-4">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">Estimated time</div>
-          <div className="mt-2 text-sm font-semibold text-neutral-900">{isPending ? "Up to 24 hours" : "Contact support"}</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">{isPending ? "Estimated time" : "Wallet balance"}</div>
+          <div className="mt-2 text-sm font-semibold text-neutral-900">{isPending ? "Up to 24 hours" : money(suspension?.current_balance, "$")}</div>
         </div>
         <div className="bg-white px-5 py-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">Store tools</div>
-          <div className="mt-2 text-sm font-semibold text-neutral-900">Locked until approved</div>
+          <div className="mt-2 text-sm font-semibold text-neutral-900">{isPending ? "Locked until approved" : "Funding and chat remain open"}</div>
         </div>
       </div>
     </section>
@@ -298,16 +315,16 @@ function AccountToolGrid({ title, children }: { title: string; children: React.R
 function CompactTool({
   href,
   label,
-  icon,
+  iconSrc,
 }: {
   href: string;
   label: string;
-  icon: React.ReactNode;
+  iconSrc: string;
 }) {
   return (
     <Link href={href} className="flex min-w-0 flex-col items-center gap-2 rounded-lg px-1 py-2 text-center no-underline transition hover:bg-orange-50">
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 text-[#ee4d2d] ring-1 ring-orange-100">
-        {icon}
+      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 p-1.5 ring-1 ring-orange-100">
+        <Image src={iconSrc} alt="" width={34} height={34} className="h-full w-full object-contain" />
       </span>
       <span className="line-clamp-2 min-h-8 text-[11px] font-bold leading-4 text-neutral-700">{label}</span>
     </Link>
@@ -541,6 +558,9 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
   const selectedFundsNetwork = formatValue(selectedFundsConfig.network, "");
   const selectedFundsQr = resolveBackendAssetUrl(formatValue(selectedFundsConfig.qr_code_url || selectedFundsConfig.qr_code_path, ""));
   const selectedFundsInstructions = formatValue(selectedFundsConfig.instructions || selectedFundsConfig.note, "");
+  const accountSuspension = objectValue(account.suspension);
+  const accountStatus = formatValue(account.seller_status || user?.sellerStatus, "");
+  const accountSuspended = accountStatus === "suspended" || accountSuspension.active === true;
   const tabOptions = [
     { key: "all", label: "All" },
     { key: "pending", label: "Under review" },
@@ -739,13 +759,13 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
   const lowBalance = accountBalance < 200;
   return (
     <div className="mx-auto max-w-7xl space-y-7 pb-12">
-      <PageHeader title={titles[kind]} onRefresh={load} />
+      {kind === "account" ? null : <PageHeader title={titles[kind]} onRefresh={load} />}
       {notice ? <div className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</div> : null}
       {loading ? <div className={`${panel} p-6 text-sm text-neutral-500`}>Loading...</div> : null}
 
       {!loading && kind === "account" ? (
         <div className="grid gap-5">
-          <ReviewStatusPanel status={user?.sellerStatus} />
+          <ReviewStatusPanel status={accountStatus} suspension={accountSuspension} />
           {account.has_invitation_code ? null : (
             <section className={`${panel} border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900`}>
               <div className="text-lg font-bold text-amber-950">Invitation code required</div>
@@ -772,11 +792,11 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
                     <div className="truncate text-2xl font-bold">{formatValue(account.store_name, "Shopee Seller")}</div>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-white/85">
                       <span>Seller ID: {formatValue(account.store_id, "Pending")}</span>
-                      <ApprovedBadge status={user?.sellerStatus} />
+                      <ApprovedBadge status={accountStatus} />
                     </div>
                   </div>
                 </div>
-                {lowBalance ? (
+                {lowBalance && !accountSuspended ? (
                   <div className="mt-5 rounded-lg border border-white/20 bg-white/12 p-3 text-sm leading-6">
                     Your balance is low. Recharge to continue processing orders smoothly.
                   </div>
@@ -789,8 +809,8 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
                   <Link href="/portal/wallet-management" className="inline-flex h-11 items-center justify-center rounded bg-red-600 px-4 text-sm font-semibold text-white no-underline">
                     Recharge
                   </Link>
-                  <Link href="/portal/withdraw" className="inline-flex h-11 items-center justify-center rounded border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-800 no-underline">
-                    Withdraw
+                  <Link href={accountSuspended ? "/portal/my-message?support=1" : "/portal/withdraw"} className="inline-flex h-11 items-center justify-center rounded border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-800 no-underline">
+                    {accountSuspended ? "Support" : "Withdraw"}
                   </Link>
                 </div>
               </div>
@@ -798,35 +818,39 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
           </section>
 
           <section className="grid gap-3 lg:grid-cols-4">
-            <AccountToolGrid title="Store Tools">
-              <CompactTool href="/portal/wholesale-centre" label="Wholesale" icon={<ShoppingBag className="h-5 w-5" />} />
-              <CompactTool href="/portal/products/my-products" label="Products" icon={<PackageCheck className="h-5 w-5" />} />
-              <CompactTool href="/portal/orders/my-orders" label="Orders" icon={<Truck className="h-5 w-5" />} />
-              <CompactTool href="/portal/my-shop" label="My Shop" icon={<Store className="h-5 w-5" />} />
-            </AccountToolGrid>
+            {accountSuspended ? null : (
+              <AccountToolGrid title="Store Tools">
+                <CompactTool href="/portal/wholesale-centre" label="Wholesale" iconSrc="/assets/images/icons/wholesale.png" />
+                <CompactTool href="/portal/products/my-products" label="Products" iconSrc="/assets/images/icons/product.png" />
+                <CompactTool href="/portal/orders/my-orders" label="Orders" iconSrc="/assets/images/icons/store-orders.png" />
+                <CompactTool href="/portal/my-shop" label="My Shop" iconSrc="/assets/images/icons/store.png" />
+              </AccountToolGrid>
+            )}
             <AccountToolGrid title="Money">
-              <CompactTool href="/portal/wallet-management" label="Wallet" icon={<WalletCards className="h-5 w-5" />} />
-              <CompactTool href="/portal/recharge-record" label="Recharge" icon={<CreditCard className="h-5 w-5" />} />
-              <CompactTool href="/portal/withdraw" label="Withdraw" icon={<Landmark className="h-5 w-5" />} />
-              <CompactTool href="/portal/withdrawals-record" label="Records" icon={<ScrollText className="h-5 w-5" />} />
+              <CompactTool href="/portal/wallet-management" label="Wallet" iconSrc="/assets/images/icons/wallet.png" />
+              <CompactTool href="/portal/wallet-management" label="Add Funds" iconSrc="/assets/images/icons/wallet.png" />
+              {accountSuspended ? null : <CompactTool href="/portal/withdraw" label="Withdraw" iconSrc="/assets/images/icons/withdraw.png" />}
+              {accountSuspended ? null : <CompactTool href="/portal/withdrawals-record" label="Records" iconSrc="/assets/images/icons/withdraw.png" />}
             </AccountToolGrid>
             <AccountToolGrid title="Communication">
-              <CompactTool href="/portal/my-message" label="Chat" icon={<MessageCircle className="h-5 w-5" />} />
-              <CompactTool href="/portal/site-message" label="Messages" icon={<ScrollText className="h-5 w-5" />} />
-              <CompactTool href="/portal/customer-service/chat-management?support=1" label="Support" icon={<MessageCircle className="h-5 w-5" />} />
-              <CompactTool href="/terms-of-service" label="Policies" icon={<ShieldCheck className="h-5 w-5" />} />
+              <CompactTool href="/portal/my-message" label="Chat" iconSrc="/assets/images/icons/chat.svg" />
+              {accountSuspended ? null : <CompactTool href="/portal/site-message" label="Messages" iconSrc="/assets/images/icons/messages.png" />}
+              <CompactTool href="/portal/customer-service/chat-management?support=1" label="Support" iconSrc="/assets/images/icons/customer-support.png" />
+              {accountSuspended ? null : <CompactTool href="/terms-of-service" label="Policies" iconSrc="/assets/images/icons/policies.png" />}
             </AccountToolGrid>
-            <AccountToolGrid title="Account">
-              <CompactTool href="/portal/my-shop" label="Store Details" icon={<Store className="h-5 w-5" />} />
-              <CompactTool href="#account-security" label="Password" icon={<KeyRound className="h-5 w-5" />} />
-              <CompactTool href="/portal/orders/shipping-setting" label="Rules" icon={<ScrollText className="h-5 w-5" />} />
-              <CompactTool href="/portal/bank-card-management" label="Bank Cards" icon={<CreditCard className="h-5 w-5" />} />
-            </AccountToolGrid>
+            {accountSuspended ? null : (
+              <AccountToolGrid title="Account">
+                <CompactTool href="/portal/my-shop" label="Store Details" iconSrc="/assets/images/icons/store.png" />
+                <CompactTool href="#account-security" label="Password" iconSrc="/assets/images/icons/security.png" />
+                <CompactTool href="/portal/orders/shipping-setting" label="Rules" iconSrc="/assets/images/icons/rules.png" />
+                <CompactTool href="/portal/bank-card-management" label="Bank Cards" iconSrc="/assets/images/icons/wallet.png" />
+              </AccountToolGrid>
+            )}
           </section>
 
           {accountBanners[0] ? <SellerAccountBanner banner={accountBanners[0]} /> : null}
 
-          <section className={`${panel} rounded-lg p-4 sm:p-5`}>
+          {accountSuspended ? null : <section className={`${panel} rounded-lg p-4 sm:p-5`}>
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <div className="text-lg font-black text-neutral-950">Landing Products</div>
@@ -845,9 +869,9 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
                 No wholesale products available right now.
               </div>
             )}
-          </section>
+          </section>}
 
-          <section id="account-security" className={`${panel} rounded-lg p-5`}>
+          {accountSuspended ? null : <section id="account-security" className={`${panel} rounded-lg p-5`}>
             <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
               <div>
                 <div className="text-lg font-bold text-neutral-950">Account Security</div>
@@ -876,7 +900,7 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
                 </div>
               </div>
             </div>
-          </section>
+          </section>}
         </div>
       ) : null}
 
