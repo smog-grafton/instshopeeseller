@@ -559,6 +559,40 @@ export async function getSellerAccount() {
   return apiFetch<{ success: boolean; account: any }>(`/seller/account`);
 }
 
+export interface SellerPolicyStatus {
+  store: {
+    vacation_mode: boolean;
+    vacation_mode_at?: string | null;
+    is_closed: boolean;
+    closure_status?: string | null;
+  };
+  obligations: Record<string, number | boolean>;
+  closure: {
+    eligible: boolean;
+    reasons: string[];
+    counts: Record<string, number | boolean>;
+  };
+  latest_closure_request?: { id: number; status: string; admin_notes?: string | null } | null;
+}
+
+export async function getSellerPolicyStatus() {
+  return apiFetch<{ success: boolean } & SellerPolicyStatus>("/seller/policy-status");
+}
+
+export async function updateSellerVacationMode(enabled: boolean) {
+  return apiFetch<{ success: boolean; message: string; vacation_mode: boolean; warnings: string[] }>("/seller/vacation-mode", {
+    method: "PUT",
+    body: JSON.stringify({ enabled }),
+  });
+}
+
+export async function requestSellerStoreClosure(sellerNote?: string) {
+  return apiFetch<{ success: boolean; message: string; reasons?: string[] }>("/seller/store-closure-requests", {
+    method: "POST",
+    body: JSON.stringify({ seller_note: sellerNote || null }),
+  });
+}
+
 export async function updateSellerAccountProfile(data: {
   email: string;
   phone?: string | null;

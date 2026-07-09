@@ -305,9 +305,9 @@ function MetricCell({ label, value, tone = "red" }: { label: string; value: stri
 
 function AccountToolGrid({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-neutral-200 bg-white p-3 shadow-[0_8px_22px_rgba(15,23,42,0.06)] sm:p-4">
+    <section className="rounded-lg border border-neutral-200 bg-white p-2.5 shadow-[0_8px_22px_rgba(15,23,42,0.06)] sm:p-3">
       <h2 className="px-1 text-sm font-black text-neutral-950 sm:text-base">{title}</h2>
-      <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-4 lg:grid-cols-4">{children}</div>
+      <div className="mt-1.5 grid grid-cols-4 gap-1 sm:mt-2 sm:grid-cols-4 lg:grid-cols-4">{children}</div>
     </section>
   );
 }
@@ -322,11 +322,11 @@ function CompactTool({
   iconSrc: string;
 }) {
   return (
-    <Link href={href} className="flex min-w-0 flex-col items-center gap-2 rounded-lg px-1 py-2 text-center no-underline transition hover:bg-orange-50">
+    <Link href={href} className="flex min-h-16 min-w-0 flex-col items-center gap-1 rounded-lg px-0.5 py-1.5 text-center no-underline transition hover:bg-orange-50">
       <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 p-1.5 ring-1 ring-orange-100">
         <Image src={iconSrc} alt="" width={34} height={34} className="h-full w-full object-contain" />
       </span>
-      <span className="line-clamp-2 min-h-8 text-[11px] font-bold leading-4 text-neutral-700">{label}</span>
+      <span className="line-clamp-2 min-h-7 text-[10px] font-bold leading-3.5 text-neutral-700 sm:text-[11px]">{label}</span>
     </Link>
   );
 }
@@ -445,6 +445,8 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
   const [loginPasswordForm, setLoginPasswordForm] = useState({ current_password: "", password: "", password_confirmation: "", password_verification_code: "" });
   const [passwordCode, setPasswordCode] = useState("");
   const [passwordCodeLoading, setPasswordCodeLoading] = useState(false);
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
   const [transactionPasswordForm, setTransactionPasswordForm] = useState({ current_password: "", password: "", password_confirmation: "" });
   const [shippingForm, setShippingForm] = useState({ shipping_address: "", telephone: "", consignee_name: "" });
   const [shopForm, setShopForm] = useState({ name: "", description: "", status_text: "", store_news: "" });
@@ -632,15 +634,35 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
   };
 
   const submitLoginPassword = async () => {
-    if (!loginPasswordForm.password_verification_code.trim()) {
-      setNotice("Enter the verification code shown above.");
+    if (passwordSubmitting) return false;
+    setPasswordError("");
+
+    if (!loginPasswordForm.current_password || !loginPasswordForm.password || !loginPasswordForm.password_confirmation) {
+      setPasswordError("Complete all password fields.");
       return false;
     }
-    await updateSellerLoginPassword(loginPasswordForm);
-    setLoginPasswordForm({ current_password: "", password: "", password_confirmation: "", password_verification_code: "" });
-    setPasswordCode("");
-    setNotice("Login password updated.");
-    return true;
+    if (loginPasswordForm.password !== loginPasswordForm.password_confirmation) {
+      setPasswordError("New password and confirmation do not match.");
+      return false;
+    }
+    if (!loginPasswordForm.password_verification_code.trim()) {
+      setPasswordError("Enter the verification code shown above.");
+      return false;
+    }
+
+    setPasswordSubmitting(true);
+    try {
+      const response = await updateSellerLoginPassword(loginPasswordForm);
+      setLoginPasswordForm({ current_password: "", password: "", password_confirmation: "", password_verification_code: "" });
+      setPasswordCode("");
+      setNotice(response.message || "Login password updated.");
+      return true;
+    } catch (error) {
+      setPasswordError(error instanceof Error ? error.message : "Unable to update the login password.");
+      return false;
+    } finally {
+      setPasswordSubmitting(false);
+    }
   };
 
   const refreshPasswordCode = async () => {
@@ -764,7 +786,7 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
       {loading ? <div className={`${panel} p-6 text-sm text-neutral-500`}>Loading...</div> : null}
 
       {!loading && kind === "account" ? (
-        <div className="grid gap-5">
+        <div className="grid gap-3">
           <ReviewStatusPanel status={accountStatus} suspension={accountSuspension} />
           {account.has_invitation_code ? null : (
             <section className={`${panel} border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900`}>
@@ -817,7 +839,7 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
             </div>
           </section>
 
-          <section className="grid gap-3 lg:grid-cols-4">
+          <section className="grid gap-2 lg:grid-cols-4">
             {accountSuspended ? null : (
               <AccountToolGrid title="Store Tools">
                 <CompactTool href="/portal/wholesale-centre" label="Wholesale" iconSrc="/assets/images/icons/wholesale.png" />
@@ -836,11 +858,11 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
               <CompactTool href="/portal/my-message" label="Chat" iconSrc="/assets/images/icons/chat.svg" />
               {accountSuspended ? null : <CompactTool href="/portal/site-message" label="Messages" iconSrc="/assets/images/icons/messages.png" />}
               <CompactTool href="/portal/customer-service/chat-management?support=1" label="Support" iconSrc="/assets/images/icons/customer-support.png" />
-              {accountSuspended ? null : <CompactTool href="/terms-of-service" label="Policies" iconSrc="/assets/images/icons/policies.png" />}
+              {accountSuspended ? null : <CompactTool href="/platform-policies" label="Policies" iconSrc="/assets/images/icons/policies.png" />}
             </AccountToolGrid>
             {accountSuspended ? null : (
               <AccountToolGrid title="Account">
-                <CompactTool href="/portal/my-shop" label="Store Details" iconSrc="/assets/images/icons/store.png" />
+                <CompactTool href="/portal/store-settings" label="Store Status" iconSrc="/assets/images/icons/store.png" />
                 <CompactTool href="#account-security" label="Password" iconSrc="/assets/images/icons/security.png" />
                 <CompactTool href="/portal/orders/shipping-setting" label="Rules" iconSrc="/assets/images/icons/rules.png" />
                 <CompactTool href="/portal/bank-card-management" label="Bank Cards" iconSrc="/assets/images/icons/wallet.png" />
@@ -883,6 +905,7 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
                   <InfoRow label="Phone number" value={account.phone ? String(account.phone) : "Not bound"} action={<button className="text-sm font-semibold text-red-700" onClick={() => setAccountModal("phone")}>{account.phone ? "Modify" : "Bind"}</button>} />
                   <InfoRow label="Email" value={maskEmail(formatValue(account.email, ""))} action={<button className="text-sm font-semibold text-red-700" onClick={() => setAccountModal("email")}>{account.email ? "Modify" : "Bind"}</button>} />
                   <InfoRow label="Login password" value="******" action={<button className="text-sm font-semibold text-red-700" onClick={() => {
+                    setPasswordError("");
                     setAccountModal("login-password");
                     void refreshPasswordCode();
                   }}>Modify</button>} />
@@ -896,7 +919,7 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
                 </p>
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   <Link href="/portal/my-message?support=1" className="inline-flex h-11 items-center justify-center rounded bg-red-600 px-4 text-sm font-semibold text-white no-underline">Contact support</Link>
-                  <Link href="/terms-of-service" className="inline-flex h-11 items-center justify-center rounded border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-800 no-underline">Review seller policy</Link>
+                  <Link href="/platform-policies" className="inline-flex h-11 items-center justify-center rounded border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-800 no-underline">Review seller policy</Link>
                 </div>
               </div>
             </div>
@@ -925,11 +948,11 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
 
       {!loading && (kind === "recharge-record" || kind === "withdrawals-record") ? (
         <>
-          <div className="inline-flex bg-neutral-100 p-1">
+          <div className="grid w-full grid-cols-4 rounded-lg bg-neutral-100 p-1 sm:inline-grid sm:w-auto">
             {tabOptions.map((tab) => (
               <button
                 key={tab.key}
-                className={`h-12 px-6 text-lg font-semibold ${status === tab.key ? "bg-white text-red-600 shadow-sm" : "text-slate-500"}`}
+                className={`min-w-0 rounded-md px-2 py-3 text-xs font-semibold sm:px-6 sm:text-base ${status === tab.key ? "bg-white text-red-600 shadow-sm" : "text-slate-500"}`}
                 onClick={() => {
                   setPage(1);
                   setStatus(tab.key);
@@ -939,18 +962,35 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
               </button>
             ))}
           </div>
-          <div className="text-lg text-neutral-400">*Click on any item to view details</div>
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className="text-sm text-neutral-500">Select a record to review its details.</div>
+          {rows(records).length === 0 ? (
+            <div className={`${panel} rounded-lg border-dashed px-4 py-12 text-center text-sm text-neutral-500`}>
+              No {kind === "withdrawals-record" ? "withdrawal" : "recharge"} records found.
+            </div>
+          ) : null}
+          <div className="grid min-w-0 gap-3 lg:grid-cols-2">
             {rows(records).map((record) => (
-              <div className={`${panel} p-5`} key={formatValue(record.id)}>
-                <div className="grid grid-cols-[180px_1fr] gap-y-5 text-xl">
-                  <div className="font-semibold text-slate-500">{kind === "recharge-record" ? "Recharge method" : "Withdrawal method"}</div><div className="text-right text-neutral-900">{formatValue(record.method, "")}</div>
-                  <div className="font-semibold text-slate-500">Order number</div><div className="text-right text-neutral-900">{formatValue(record.order_number, "")}</div>
-                  <div className="font-semibold text-slate-500">Quantity</div><div className="text-right text-neutral-900">{Number(record.quantity).toFixed(2).replace(/\\.00$/, "")}</div>
-                  <div className="font-semibold text-slate-500">State</div><div className={`text-right ${record.state === "Success" ? "text-emerald-600" : record.state === "Fail" ? "text-red-600" : "text-amber-600"}`}>{formatValue(record.state, "")}</div>
-                  <div className="font-semibold text-slate-500">Time</div><div className="text-right text-neutral-900">{formatValue(record.time, "")}</div>
+              <article className={`${panel} min-w-0 rounded-lg p-4 sm:p-5`} key={formatValue(record.id)}>
+                <div className="grid min-w-0 grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-x-3 gap-y-3 text-sm sm:gap-y-4 sm:text-base">
+                  <div className="font-semibold text-slate-500">{kind === "recharge-record" ? "Recharge method" : "Method"}</div>
+                  <div className="break-anywhere text-right font-medium text-neutral-900">{formatValue(record.method, "Not provided")}</div>
+                  <div className="font-semibold text-slate-500">Reference ID</div>
+                  <div className="break-anywhere text-right font-mono text-xs text-neutral-900 sm:text-sm">{formatValue(record.order_number, "")}</div>
+                  <div className="font-semibold text-slate-500">Amount</div>
+                  <div className="text-right font-bold tabular-nums text-neutral-900">{Number(record.quantity).toFixed(2)}</div>
+                  <div className="font-semibold text-slate-500">Status</div>
+                  <div className="text-right">
+                    <span className={`inline-flex max-w-full rounded-full px-2.5 py-1 text-xs font-bold ${record.state === "Success" ? "bg-emerald-50 text-emerald-700" : record.state === "Fail" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>
+                      {formatValue(record.state, "")}
+                    </span>
+                  </div>
+                  <div className="font-semibold text-slate-500">Requested</div>
+                  <div className="break-anywhere text-right text-neutral-900">{formatValue(record.time, "")}</div>
+                  {record.updated_at ? <><div className="font-semibold text-slate-500">Updated</div><div className="break-anywhere text-right text-neutral-900">{formatValue(record.updated_at, "")}</div></> : null}
+                  {record.destination ? <><div className="font-semibold text-slate-500">Destination</div><div className="break-anywhere text-right text-neutral-900">{formatValue(record.destination, "")}</div></> : null}
+                  {record.notes || record.review_notes ? <><div className="font-semibold text-slate-500">Notes</div><div className="break-anywhere text-right text-neutral-900">{formatValue(record.review_notes || record.notes, "")}</div></> : null}
                 </div>
-              </div>
+              </article>
             ))}
           </div>
           <Pager page={page} data={records} onPage={setPage} />
@@ -1343,7 +1383,7 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
           <div className="w-full max-w-lg bg-white p-8 shadow-2xl">
             <div className="flex items-center justify-between border-b border-neutral-200 pb-5">
               <h2 className="text-3xl font-bold text-black">Update username</h2>
-              <button className="text-4xl leading-none" onClick={() => setAccountModal(null)}>×</button>
+              <button type="button" className="text-4xl leading-none" onClick={() => setAccountModal(null)}>×</button>
             </div>
             <div className="mt-5 text-xl font-semibold text-neutral-600">Username</div>
             <input
@@ -1410,10 +1450,19 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
 
       {accountModal === "login-password" || accountModal === "transaction-password" ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-lg bg-white p-8 shadow-2xl">
+          <form
+            className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-5 shadow-2xl sm:p-8"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const saved = accountModal === "login-password"
+                ? await submitLoginPassword()
+                : await submitTransactionPassword();
+              if (saved) setAccountModal(null);
+            }}
+          >
             <div className="flex items-center justify-between border-b border-neutral-200 pb-5">
               <h2 className="text-3xl font-bold text-black">{accountModal === "login-password" ? "Modify login password" : "Modify transaction password"}</h2>
-              <button className="text-4xl leading-none" onClick={() => setAccountModal(null)}>×</button>
+              <button type="button" className="text-4xl leading-none" onClick={() => setAccountModal(null)}>×</button>
             </div>
             <div className="mt-6 space-y-3">
               {accountModal === "login-password" ? (
@@ -1428,11 +1477,12 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
                         <div className="mt-1 font-mono text-2xl font-black tracking-[0.18em] text-neutral-950">{passwordCode || "------"}</div>
                       </div>
                       <button type="button" className={`${lightButton} h-10 px-3 text-xs`} onClick={refreshPasswordCode} disabled={passwordCodeLoading}>
-                        {passwordCodeLoading ? "Loading..." : "Refresh"}
+                        {passwordCodeLoading ? "Loading..." : "Regenerate"}
                       </button>
                     </div>
                   </div>
                   <input className={input} value={loginPasswordForm.password_verification_code} onChange={(event) => setLoginPasswordForm((form) => ({ ...form, password_verification_code: event.target.value.toUpperCase() }))} placeholder="Enter verification code" />
+                  {passwordError ? <div className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700" role="alert">{passwordError}</div> : null}
                 </>
               ) : (
                 <>
@@ -1443,20 +1493,13 @@ export function OperationPage({ kind }: { kind: OperationPageKind }) {
               )}
             </div>
             <button
+              type="submit"
+              disabled={passwordSubmitting}
               className={`${redButton} mt-8 h-14 w-full text-xl`}
-              onClick={async () => {
-                let saved = false;
-                if (accountModal === "login-password") {
-                  saved = await submitLoginPassword();
-                } else {
-                  saved = await submitTransactionPassword();
-                }
-                if (saved) setAccountModal(null);
-              }}
             >
-              Submit
+              {passwordSubmitting ? "Updating..." : "Submit"}
             </button>
-          </div>
+          </form>
         </div>
       ) : null}
 
