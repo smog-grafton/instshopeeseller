@@ -10,6 +10,9 @@ import {
   getCatalogProducts,
   getSellerProductSettings,
   getWallet,
+  relistSellerProduct,
+  removeSellerProductCompletely,
+  unlistSellerProduct,
   type SellerProductSettings,
 } from "@/lib/api-client";
 import { formatCurrencyAmount, isBackendImage, resolveBackendAssetUrl } from "@/lib/utils";
@@ -49,6 +52,16 @@ const SECTION_OPTIONS = [
   { id: "ready_stock", label: "Ready Stock", helper: "Higher stock first" },
   { id: "value_picks", label: "Value Picks", helper: "Lower entry price" },
 ];
+
+const LISTING_STATE_OPTIONS = [
+  { id: "all", label: "All Products" },
+  { id: "available", label: "Available to List" },
+  { id: "listed", label: "Already Listed" },
+  { id: "unlisted", label: "Unlisted" },
+] as const;
+
+type ListingState = (typeof LISTING_STATE_OPTIONS)[number]["id"];
+type ListingAction = "unlist" | "remove";
 
 const PRICE_RANGE_OPTIONS: PriceRangeOption[] = [
   { id: "all", label: "All" },
@@ -180,6 +193,7 @@ export default function WholesaleCentrePage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedPriceRangeId, setSelectedPriceRangeId] = useState("all");
   const [selectedSectionId, setSelectedSectionId] = useState("latest");
+  const [selectedListingState, setSelectedListingState] = useState<ListingState>("all");
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [currency, setCurrency] = useState("USD");
   const [productSettings, setProductSettings] = useState<SellerProductSettings | null>(null);
@@ -188,6 +202,8 @@ export default function WholesaleCentrePage() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [listingProductId, setListingProductId] = useState<number | null>(null);
+  const [managingProductId, setManagingProductId] = useState<number | null>(null);
+  const [confirmAction, setConfirmAction] = useState<ListingAction | null>(null);
 
   const canEditProducts = productSettings?.can_edit_products ?? true;
 
@@ -225,12 +241,14 @@ export default function WholesaleCentrePage() {
     category?: string;
     priceRangeId?: string;
     sectionId?: string;
+    listingState?: ListingState;
   }) => {
     const nextPage = options?.page ?? catalogPage;
     const nextSearch = options?.search ?? catalogSearch;
     const nextCategory = options?.category ?? selectedCategory;
     const nextPriceRangeId = options?.priceRangeId ?? selectedPriceRangeId;
     const nextSectionId = options?.sectionId ?? selectedSectionId;
+    const nextListingState = options?.listingState ?? selectedListingState;
     const selectedPriceRange = PRICE_RANGE_OPTIONS.find((option) => option.id === nextPriceRangeId) ?? PRICE_RANGE_OPTIONS[0];
 
     setCatalogLoading(true);
@@ -244,6 +262,7 @@ export default function WholesaleCentrePage() {
         per_page: 20,
         section: nextSectionId,
         listing_type: "wholesale_centre",
+        listing_state: nextListingState,
       });
 
       setCatalogProducts(res.products.data);
@@ -323,6 +342,12 @@ export default function WholesaleCentrePage() {
     void loadCatalog({ page: 1, sectionId });
   };
 
+  const handleListingStateChange = (listingState: ListingState) => {
+    setSelectedListingState(listingState);
+    setCatalogPage(1);
+    void loadCatalog({ page: 1, listingState });
+  };
+
   const handlePageChange = (page: number) => {
     if (page < 1 || page > catalogLastPage || page === catalogPage) {
       return;
@@ -370,6 +395,8 @@ export default function WholesaleCentrePage() {
                 already_distributed: true,
                 distributed_product_id: distributedProductId,
                 distributed_at: product.distributed_at ?? new Date().toISOString(),
+                listing_status: "listed",
+                shop_visible: true,
               }
             : product,
         ),
@@ -381,6 +408,8 @@ export default function WholesaleCentrePage() {
               already_distributed: true,
               distributed_product_id: distributedProductId,
               distributed_at: currentProduct.distributed_at ?? new Date().toISOString(),
+              listing_status: "listed",
+              shop_visible: true,
             }
           : currentProduct,
       );
@@ -398,6 +427,47 @@ export default function WholesaleCentrePage() {
     }
   };
 
+  const updateListingState = (id: number, listingStatus: "available" | "listed" | "unlisted", distributedProductId?: number | null) => {
+    const attributes = {
+      already_distributed: listingStatus !== "available",
+      distributed_product_id: distributedProductId ?? null,
+      listing_status: listingStatus,
+      shop_visible: listingStatus === "listed",
+      unlisted_at: listingStatus === "unlisted" ? new Date().toISOString() : null,
+    };
+    setCatalogProducts((current) => current.map((product) => product.id === id ? { ...product, ...attributes } : product));
+    setSelectedProduct((current: any) => current?.id === id ? { ...current, ...attributes } : current);
+  };
+
+  const runListingAction = async (action: "unlist" | "relist" | "remove") => {
+    const catalogId = selectedProduct?.id;
+    const productId = Number(selectedProduct?.distributed_product_id || 0);
+    if (!catalogId || !productId || managingProductId) return;
+
+    setManagingProductId(productId);
+    try {
+      if (action === "unlist") {
+        const res = await unlistSellerProduct(productId);
+        updateListingState(catalogId, "unlisted", productId);
+        alert(res.message);
+      } else if (action === "relist") {
+        const res = await relistSellerProduct(productId);
+        updateListingState(catalogId, "listed", productId);
+        alert(res.message);
+      } else {
+        const res = await removeSellerProductCompletely(productId);
+        updateListingState(catalogId, "available", null);
+        alert(res.message);
+      }
+      setConfirmAction(null);
+      await loadCatalog({ page: catalogPage });
+    } catch (error: any) {
+      alert(error?.message || "Unable to update this listing.");
+    } finally {
+      setManagingProductId(null);
+    }
+  };
+
   const selectedImages = useMemo(() => normalizeCatalogImages(selectedProduct), [selectedProduct]);
   const selectedSpecifications = useMemo(
     () => normalizeCatalogSpecifications(selectedProduct?.specifications),
@@ -410,6 +480,11 @@ export default function WholesaleCentrePage() {
   const selectedColors = selectedVariants.filter((variant) => variant.type === "color");
   const selectedSizes = selectedVariants.filter((variant) => variant.type === "size");
   const selectedAlreadyDistributed = isProductDistributed(selectedProduct);
+  const selectedListingStatus = String(selectedProduct?.listing_status || (selectedAlreadyDistributed ? "listed" : "available"));
+  const selectedProfitEstimate = Math.max(
+    0,
+    Number(selectedProduct?.base_price || 0) - Number(selectedProduct?.wholesale_price || 0) - Number(selectedProduct?.shipping_fee || 0),
+  );
   const selectedImageUrl =
     selectedImage ?? resolveBackendAssetUrl(selectedImages[0]?.image_path) ?? resolveCatalogThumbnail(selectedProduct);
 
@@ -472,6 +547,29 @@ export default function WholesaleCentrePage() {
           </div>
 
           <div className="mt-5 space-y-4 border-t border-gray-100 pt-4">
+            <div className="space-y-2">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">Listing status</div>
+              <div className="flex flex-wrap gap-2">
+                {LISTING_STATE_OPTIONS.map((option) => {
+                  const active = selectedListingState === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => handleListingStateChange(option.id)}
+                      className={`inline-flex h-9 items-center justify-center rounded-full border px-4 text-xs font-semibold transition ${
+                        active
+                          ? "border-orange-600 bg-orange-600 text-white"
+                          : "border-gray-200 bg-white text-gray-700 hover:border-orange-200 hover:bg-orange-50"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="space-y-2">
               <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">Sections</div>
               <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -597,14 +695,18 @@ export default function WholesaleCentrePage() {
                       </span>
                       <button
                         type="button"
-                        onClick={() => void onAdd(product.id)}
-                        disabled={listingProductId === product.id || alreadyDistributed}
-                        className="inline-flex h-8 shrink-0 items-center justify-center border border-orange-600 bg-orange-600 px-2.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:border-emerald-600 disabled:bg-emerald-600 disabled:opacity-100"
+                        onClick={() => alreadyDistributed ? void openDetails(product) : void onAdd(product.id)}
+                        disabled={listingProductId === product.id}
+                        className={`inline-flex h-8 shrink-0 items-center justify-center border px-2.5 text-[10px] font-semibold uppercase tracking-[0.06em] transition disabled:cursor-not-allowed ${
+                          alreadyDistributed
+                            ? "border-emerald-600 bg-white text-emerald-700 hover:bg-emerald-50"
+                            : "border-orange-600 bg-orange-600 text-white hover:bg-orange-700"
+                        }`}
                       >
                         {listingProductId === product.id
                           ? "Listing..."
                           : alreadyDistributed
-                            ? "Listed"
+                            ? "Manage"
                             : "Confirm listing"}
                       </button>
                     </div>
@@ -779,6 +881,12 @@ export default function WholesaleCentrePage() {
                     </div>
                   </div>
                   <div>
+                    <div className="text-xs text-gray-500">Estimated profit</div>
+                    <div className="text-sm font-semibold text-emerald-700">
+                      {formatCurrencyAmount(selectedProfitEstimate, currency)}
+                    </div>
+                  </div>
+                  <div>
                     <div className="text-xs text-gray-500">Available stock</div>
                     <div className="text-sm font-semibold text-gray-900">{selectedProduct?.available_stock ?? 0}</div>
                   </div>
@@ -786,6 +894,22 @@ export default function WholesaleCentrePage() {
                     <div className="text-xs text-gray-500">Minimum order</div>
                     <div className="text-sm font-semibold text-gray-900">{selectedProduct?.min_order_quantity ?? 1}</div>
                   </div>
+                  {selectedAlreadyDistributed && (
+                    <>
+                      <div>
+                        <div className="text-xs text-gray-500">Listing status</div>
+                        <div className="text-sm font-semibold text-gray-900">
+                          {selectedListingStatus === "unlisted" ? "Unlisted" : "Active"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">Shop visibility</div>
+                        <div className={`text-sm font-semibold ${selectedProduct?.shop_visible ? "text-emerald-700" : "text-amber-700"}`}>
+                          {selectedProduct?.shop_visible ? "Visible in Shop" : "Hidden from Shop"}
+                        </div>
+                      </div>
+                    </>
+                  )}
                   {selectedProduct?.location && (
                     <div>
                       <div className="text-xs text-gray-500">Ships from</div>
@@ -812,8 +936,8 @@ export default function WholesaleCentrePage() {
                     </span>
                   )}
                   {selectedAlreadyDistributed && (
-                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-                      Already distributed
+                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${selectedListingStatus === "unlisted" ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
+                      {selectedListingStatus === "unlisted" ? "Unlisted" : "Already Listed"}
                     </span>
                   )}
                   {Array.isArray(selectedProduct?.text_badges) &&
@@ -941,28 +1065,87 @@ export default function WholesaleCentrePage() {
 
             <div className="border-t border-gray-200 px-5 py-4">
               <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => void onAdd(selectedProductId)}
-                  disabled={listingProductId === selectedProductId || selectedAlreadyDistributed}
-                  className="inline-flex h-11 items-center justify-center rounded-xl bg-orange-600 px-5 text-sm font-medium text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-emerald-600 disabled:opacity-100"
-                >
-                  {listingProductId === selectedProductId
-                    ? "Listing..."
-                    : selectedAlreadyDistributed
-                      ? "Already distributed"
-                      : "Confirm listing"}
-                </button>
-                <Link
-                  href="/portal/products/my-products"
-                  className="inline-flex h-11 items-center justify-center rounded-xl border border-gray-200 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  My Products
+                {!selectedAlreadyDistributed ? (
+                  <button
+                    type="button"
+                    onClick={() => void onAdd(selectedProductId)}
+                    disabled={listingProductId === selectedProductId}
+                    className="inline-flex h-11 items-center justify-center rounded-xl bg-orange-600 px-5 text-sm font-medium text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-orange-300"
+                  >
+                    {listingProductId === selectedProductId ? "Listing..." : "List in My Shop"}
+                  </button>
+                ) : (
+                  <>
+                    <Link
+                      href={`/portal/products/preview/${selectedProduct.distributed_product_id}`}
+                      className="inline-flex h-11 items-center justify-center rounded-xl border border-gray-200 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      View Listing
+                    </Link>
+                    {selectedListingStatus === "unlisted" ? (
+                      <button
+                        type="button"
+                        onClick={() => void runListingAction("relist")}
+                        disabled={managingProductId !== null}
+                        className="inline-flex h-11 items-center justify-center rounded-xl bg-emerald-600 px-5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                      >
+                        {managingProductId ? "Updating..." : "Relist Product"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmAction("unlist")}
+                        disabled={managingProductId !== null}
+                        className="inline-flex h-11 items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-5 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                      >
+                        Unlist Product
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setConfirmAction("remove")}
+                      disabled={managingProductId !== null}
+                      className="inline-flex h-11 items-center justify-center rounded-xl border border-red-200 px-5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      Remove Completely
+                    </button>
+                  </>
+                )}
+                <Link href="/portal/product-management" className="ml-auto text-sm font-medium text-blue-600 hover:text-blue-700">
+                  Product Management
                 </Link>
               </div>
             </div>
           </aside>
         </>
+      )}
+
+      {confirmAction && selectedAlreadyDistributed && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {confirmAction === "unlist" ? "Unlist Product?" : "Remove Product Completely?"}
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              {confirmAction === "unlist"
+                ? "This product will be hidden from your shop, but you can list it again later."
+                : "This will remove the product from your shop completely. To sell it again, you will need to distribute it from the Wholesale Centre again."}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => setConfirmAction(null)} disabled={managingProductId !== null} className="h-10 rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void runListingAction(confirmAction)}
+                disabled={managingProductId !== null}
+                className={`h-10 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-50 ${confirmAction === "remove" ? "bg-red-600 hover:bg-red-700" : "bg-amber-600 hover:bg-amber-700"}`}
+              >
+                {managingProductId ? "Updating..." : confirmAction === "remove" ? "Remove Completely" : "Unlist Product"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

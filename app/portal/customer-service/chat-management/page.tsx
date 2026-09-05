@@ -445,9 +445,9 @@ export default function ChatManagementPage() {
         : undefined;
       const res = await sendSellerChatMessage(selectedId, text, meta, attachment ?? undefined);
       sendSellerChatTyping(selectedId, false).catch(() => {});
-      setMessages((prev) => [
-        ...prev.filter((m) => m.id !== tempId),
-        {
+      setMessages((prev) => {
+        const current = prev.filter((message) => message.id !== tempId);
+        const incoming: ChatMessage[] = [{
           id: res.message.id,
           text: res.message.text,
           sender_type: "seller",
@@ -455,7 +455,18 @@ export default function ChatManagementPage() {
           timestamp: res.message.timestamp,
           meta: res.message.meta ?? null,
         },
-      ]);
+        ...(res.auto_reply ? [{
+          id: res.auto_reply.id,
+          text: res.auto_reply.text,
+          sender_type: res.auto_reply.sender_type,
+          sender_label: res.auto_reply.sender_label || "Shopee Support",
+          timestamp: res.auto_reply.timestamp,
+          meta: res.auto_reply.meta ?? null,
+        }] : []),
+        ];
+        const existingIds = new Set(current.map((message) => String(message.id)));
+        return [...current, ...incoming.filter((message) => !existingIds.has(String(message.id)))];
+      });
       fetchThreads();
     } catch (error) {
       setInput(text);
