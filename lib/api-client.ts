@@ -517,13 +517,13 @@ export async function sendSellerChatMessage(
     if (meta?.order_id !== undefined) form.append("order_id", String(meta.order_id));
     if (meta?.topic) form.append("topic", meta.topic);
     form.append("attachment", attachment);
-    return createMultipartRequest<{ success: boolean; message: { id: string; text: string; sender_type: string; sender_label?: string; timestamp: string; meta?: any } }>(
+    return createMultipartRequest<{ success: boolean; message: { id: string; text: string; sender_type: string; sender_label?: string; timestamp: string; meta?: any }; auto_reply?: { id: string; text: string; sender_type: string; sender_label?: string; timestamp: string; meta?: any } | null }>(
       `/seller/chat/threads/${threadId}/send`,
       form
     );
   }
 
-  return apiFetch<{ success: boolean; message: { id: string; text: string; sender_type: string; sender_label?: string; timestamp: string; meta?: any } }>(
+  return apiFetch<{ success: boolean; message: { id: string; text: string; sender_type: string; sender_label?: string; timestamp: string; meta?: any }; auto_reply?: { id: string; text: string; sender_type: string; sender_label?: string; timestamp: string; meta?: any } | null }>(
     `/seller/chat/threads/${threadId}/send`,
     {
       method: "POST",
@@ -835,7 +835,7 @@ export interface SellerProduct {
   original_price: string | null;
   stock: number;
   is_active: boolean;
-  status?: "draft" | "pending" | "live" | "rejected" | "hidden";
+  status?: "draft" | "pending" | "live" | "rejected" | "hidden" | "removed";
   low_stock?: boolean;
   low_stock_threshold?: number | null;
   max_per_order?: number | null;
@@ -846,7 +846,13 @@ export interface SellerProduct {
   appeal_message?: string | null;
   thumbnail_url: string | null;
   created_at: string;
-  catalog_link?: string | null;
+  listed_at?: string | null;
+  unlisted_at?: string | null;
+  removed_at?: string | null;
+  catalog_link?: {
+    catalog_product_id?: number;
+    catalog_product?: { id?: number; title?: string; listing_type?: string } | null;
+  } | null;
 }
 
 export interface SellerProductSettings {
@@ -854,7 +860,7 @@ export interface SellerProductSettings {
   edit_lock_reason?: string | null;
 }
 
-export async function getSellerProducts(params?: { search?: string; status?: "active" | "inactive" | "draft" | "pending" | "live" | "rejected" | "hidden"; per_page?: number }) {
+export async function getSellerProducts(params?: { search?: string; status?: "active" | "inactive" | "draft" | "pending" | "live" | "rejected" | "hidden" | "unlisted"; per_page?: number }) {
   const query = new URLSearchParams();
   if (params?.search) query.set("search", params.search);
   if (params?.status) query.set("status", params.status);
@@ -881,6 +887,24 @@ export async function updateSellerProduct(id: number, data: Record<string, any>)
 export async function addCatalogProductToShop(catalogId: number) {
   return apiFetch<{ success: boolean; message: string; product: any }>(`/catalog-products/${catalogId}/add-to-shop`, {
     method: "POST",
+  });
+}
+
+export async function unlistSellerProduct(productId: number) {
+  return apiFetch<{ success: boolean; message: string; product: SellerProduct }>(`/seller/products/${productId}/unlist`, {
+    method: "POST",
+  });
+}
+
+export async function relistSellerProduct(productId: number) {
+  return apiFetch<{ success: boolean; message: string; product: SellerProduct }>(`/seller/products/${productId}/relist`, {
+    method: "POST",
+  });
+}
+
+export async function removeSellerProductCompletely(productId: number) {
+  return apiFetch<{ success: boolean; message: string }>(`/seller/products/${productId}`, {
+    method: "DELETE",
   });
 }
 
@@ -914,6 +938,7 @@ export async function getCatalogProducts(params?: {
   section?: string;
   /** `standard` (default catalog) or `wholesale_centre` */
   listing_type?: string;
+  listing_state?: "all" | "available" | "listed" | "unlisted";
 }) {
   const query = new URLSearchParams();
   if (params?.search) query.set("search", params.search);
@@ -924,6 +949,7 @@ export async function getCatalogProducts(params?: {
   if (params?.per_page) query.set("per_page", String(params.per_page));
   if (params?.section) query.set("section", params.section);
   if (params?.listing_type) query.set("listing_type", params.listing_type);
+  if (params?.listing_state && params.listing_state !== "all") query.set("listing_state", params.listing_state);
   const q = query.toString();
   return apiFetch<{
     success: boolean;
